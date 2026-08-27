@@ -8,9 +8,6 @@ import base64
 
 st.set_page_config(page_title="ระบบสารสนเทศพฤกษศาสตร์โรงเรียน", page_icon="🌿", layout="wide")
 
-# ==========================================
-# 📂 ฟังก์ชันจัดการข้อมูล (Base64)
-# ==========================================
 PLANTS_FILE = "plants_data.json"
 STUDENTS_FILE = "students_data.json"
 
@@ -87,18 +84,16 @@ if 'logged_in_user' not in st.session_state:
     st.session_state['logged_in_user'] = None
 
 # ==========================================
-# 🔐 ระบบหน้า Login
+# 🔐 หน้า Login
 # ==========================================
 if st.session_state['logged_in_user'] is None:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
-    
     with col2:
         st.markdown("<h2 style='text-align: center; color: #2E7D32;'>🌿 เข้าสู่ระบบพฤกษศาสตร์โรงเรียน</h2>", unsafe_allow_html=True)
         with st.form("login_form"):
             input_id = st.text_input("เลขประจำตัว (นักเรียน / แอดมิน)").strip()
             submit_login = st.form_submit_button("เข้าสู่ระบบ", use_container_width=True)
-            
             if submit_login:
                 if not input_id:
                     st.error("กรุณากรอกเลขประจำตัว")
@@ -111,7 +106,7 @@ if st.session_state['logged_in_user'] is None:
     st.stop()
 
 # ==========================================
-# 🖥️ Sidebar เมนูการใช้งาน
+# 🖥️ Sidebar เมนู
 # ==========================================
 current_user_id = st.session_state['logged_in_user']
 user_info = st.session_state['students'].get(current_user_id, {"name": "ผู้ใช้งาน", "class": "-", "role": "User"})
@@ -131,19 +126,13 @@ if user_info.get('role') == "Admin":
 
 menu = st.sidebar.selectbox("📂 เมนูการใช้งาน", menu_options)
 
-# ==========================================
-# ฟังก์ชันสร้าง QR Code (แก้ไขให้สแกนติดง่าย โดยลิงก์มาที่เว็บแอป)
-# ==========================================
 def generate_qr_code(plant_name):
-    # ใช้ URL ของแอปปัจจุบัน หรือกำหนดเว็บหลัก เพื่อให้ QR Code โปร่ง ไม่แน่นทึบ สแกนง่าย
     base_url = "https://school-plant-gbfwt8zbdxa9mnjf7yay36.streamlit.app"
     qr_data = f"{base_url}/?plant={plant_name}"
-    
     qr = qrcode.QRCode(version=1, box_size=10, border=2)
     qr.add_data(qr_data)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
-    
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
     return buffered.getvalue()
@@ -175,18 +164,18 @@ if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
                 try:
                     st.image(img_data, caption=f"ภาพถ่าย {plant_name}", use_column_width=True)
                 except Exception:
-                    st.info("ไม่สามารถแสดงรูปภาพได้ กรุณาอัปโหลดรูปภาพใหม่อีกครั้งในเมนูจัดการพืช")
+                    st.info("ไม่สามารถแสดงรูปภาพได้")
             else:
-                st.warning("⚠️ ยังไม่มีรูปภาพประกอบสำหรับพืชชนิดนี้ (สามารถให้ Admin อัปโหลดเพิ่มได้ที่เมนูจัดการพืช)")
+                st.warning("⚠️ ยังไม่มีรูปภาพประกอบสำหรับพืชชนิดนี้")
 
         with col2:
             st.subheader("📱 QR Code ประจำต้นไม้ (สแกนง่าย)")
             try:
                 qr_bytes = generate_qr_code(plant_name)
                 st.image(qr_bytes, width=250)
-                st.success("QR Code ถูกปรับปรุงให้สแกนง่ายขึ้นแล้ว! เมื่อสแกนจะเปิดข้อมูลพืชนี้ทันที")
+                st.success("QR Code พร้อมใช้งาน สแกนเพื่อเปิดดูข้อมูลพืชได้ทันที!")
             except Exception as e:
-                st.error("ไม่สามารถสร้าง QR Code ได้ในขณะนี้")
+                st.error("ไม่สามารถสร้าง QR Code ได้")
 
 # ==========================================
 # 2. จัดการข้อมูลพืช (Admin Only)
@@ -244,9 +233,9 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                     except Exception:
                         pass
                 else:
-                    st.info("พืชนี้ยังไม่มีรูปภาพ กรุณาอัปโหลดด้านล่าง")
+                    st.info("พืชนี้ยังไม่มีรูปภาพในระบบ")
 
-                edit_file = st.file_uploader("อัปโหลดรูปภาพใหม่", type=["png", "jpg", "jpeg"], key="edit_img")
+                edit_file = st.file_uploader("อัปโหลดรูปภาพใหม่ (ถ้าต้องการเปลี่ยน)", type=["png", "jpg", "jpeg"], key="edit_img")
                 
                 submit_edit = st.form_submit_button("บันทึกการแก้ไข")
                 
@@ -264,9 +253,10 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                         target_data['family'] = edit_family
                         target_data['benefit'] = edit_benefit
                         
+                        # คงรูปภาพเดิมไว้ หากไม่ได้อัปโหลดไฟล์ใหม่เข้ามา
                         if edit_file is not None:
                             target_data['image'] = edit_file.read()
-                            
+                        
                         save_plants()
                         st.success(f"แก้ไขข้อมูลพืชสำเร็จ!")
                         st.rerun()
