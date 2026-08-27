@@ -11,6 +11,23 @@ st.set_page_config(page_title="ระบบสารสนเทศพฤกษ�
 PLANTS_FILE = "plants_data.json"
 STUDENTS_FILE = "students_data.json"
 
+# ==========================================
+# 🛠️ ฟังก์ชันจัดการรูปภาพ (เคลียร์ไฟล์เสีย & ลดขนาด)
+# ==========================================
+def process_image(upload_file):
+    try:
+        img = Image.open(upload_file)
+        # แปลงเป็น RGB เพื่อลบปัญหาพื้นหลังโปร่งใสหรือไฟล์แปลกๆ
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        # ย่อขนาดรูปภาพไม่ให้เกิน 800px เพื่อลดขนาดไฟล์ JSON ป้องกันระบบพัง
+        img.thumbnail((800, 800))
+        buffered = io.BytesIO()
+        img.save(buffered, format="JPEG", quality=85)
+        return buffered.getvalue()
+    except Exception:
+        return None
+
 def load_plants():
     if os.path.exists(PLANTS_FILE):
         try:
@@ -167,9 +184,11 @@ if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
             img_data = data.get('image')
             if img_data is not None and isinstance(img_data, bytes) and len(img_data) > 50:
                 try:
-                    st.image(img_data, caption=f"ภาพถ่าย {plant_name}", use_column_width=True)
-                except Exception:
-                    st.warning("⚠️ ไฟล์รูปภาพไม่ถูกต้อง กรุณาอัปโหลดรูปภาพใหม่อีกครั้ง")
+                    # โหลดผ่าน PIL ก่อนแสดงผลเพื่อป้องกันปัญหาไฟล์พัง
+                    image_to_show = Image.open(io.BytesIO(img_data))
+                    st.image(image_to_show, caption=f"ภาพถ่าย {plant_name}", use_column_width=True)
+                except Exception as e:
+                    st.warning(f"⚠️ ไม่สามารถแสดงรูปภาพได้ ({e}) กรุณาอัปโหลดรูปภาพใหม่อีกครั้ง")
             else:
                 st.warning("⚠️ ยังไม่มีรูปภาพประกอบสำหรับพืชชนิดนี้ (สามารถไปอัปโหลดได้ที่เมนูจัดการพืช)")
 
@@ -179,7 +198,7 @@ if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
                 qr_bytes = generate_qr_code(plant_name)
                 st.image(qr_bytes, width=250)
                 st.success("QR Code พร้อมใช้งาน สแกนเพื่อเปิดดูข้อมูลพืชได้ทันที!")
-            except Exception as e:
+            except Exception:
                 st.error("ไม่สามารถสร้าง QR Code ได้")
 
 # ==========================================
@@ -206,7 +225,13 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                     if new_name in st.session_state['plants']:
                         st.error("มีชื่อพืชนี้อยู่ในระบบแล้ว")
                     else:
-                        img_bytes = uploaded_file.read() if uploaded_file is not None else None
+                        img_bytes = None
+                        if uploaded_file is not None:
+                            img_bytes = process_image(uploaded_file)
+                            if not img_bytes:
+                                st.error("❌ ไฟล์รูปภาพมีปัญหา ไม่สามารถใช้รูปนี้ได้")
+                                st.stop()
+                                
                         st.session_state['plants'][new_name] = {
                             "scientific_name": new_sci,
                             "family": new_family,
@@ -238,10 +263,10 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                 delete_image_checkbox = False
                 if has_valid_img:
                     try:
-                        st.image(curr_img, width=150, caption="รูปภาพปัจจุบันในระบบ")
+                        st.image(Image.open(io.BytesIO(curr_img)), width=150, caption="รูปภาพปัจจุบันในระบบ")
                     except Exception:
                         pass
-                    delete_image_checkbox = st.checkbox("🗑️ ติ๊กเพื่อลบรูปภาพนี้ออก")
+                    delete_image_checkbox = st.checkbox("🗑️ ติ๊กเพื่อลบรูปภาพที่ค้างอยู่นี้ออก")
                 else:
                     st.info("พืชนี้ยังไม่มีรูปภาพในระบบ")
 
@@ -263,10 +288,17 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                         target_data['family'] = edit_family
                         target_data['benefit'] = edit_benefit
                         
+                        # หากเลือกลบ ให้ล้างค่าทิ้ง
                         if delete_image_checkbox:
                             target_data['image'] = None
+                        # หากอัปโหลดใหม่ ให้ส่งเข้าตัวจัดการรูปอัตโนมัติ
                         elif edit_file is not None:
-                            target_data['image'] = edit_file.read()
+                            processed_img = process_image(edit_file)
+                            if processed_img:
+                                target_data['image'] = processed_img
+                            else:
+                                st.error("❌ ไฟล์รูปภาพมีปัญหา ไม่สามารถใช้รูปนี้ได้ กรุณาลองรูปอื่น")
+                                st.stop()
                         
                         save_plants()
                         st.success(f"แก้ไขข้อมูลพืชสำเร็จ!")
