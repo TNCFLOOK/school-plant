@@ -17,7 +17,7 @@ if 'plants' not in st.session_state:
     }
 
 if 'users' not in st.session_state:
-    # ค่าเริ่มต้น: แอดมินหลักเลขประจำตัว 'admin01' (รหัสผ่าน 1234 หรือกำหนดอิสระ)
+    # ค่าเริ่มต้น: แอดมินหลักเลขประจำตัว 'admin01'
     st.session_state['users'] = {
         "admin01": {"name": "ผู้ดูแลระบบหลัก", "role": "Admin"}
     }
@@ -62,10 +62,24 @@ st.sidebar.markdown("---")
 # --- เมนูหลัก ---
 menu_options = ["หน้าหลัก (ค้นหา & QR Code)"]
 if st.session_state['user_role'] == "Admin":
-    menu_options.append("จัดการข้อมูลพืช & เพิ่มรูปภาพ")
+    menu_options.append("จัดการข้อมูลพืช (เพิ่ม/แก้ไข/ลบ)")
     menu_options.append("จัดการผู้ดูแลระบบ (Admin)")
 
 menu = st.sidebar.selectbox("เมนูการใช้งาน", menu_options)
+
+# ==========================================
+# ฟังก์ชันช่วยสร้าง QR Code
+# ==========================================
+def generate_qr_code(plant_name, data):
+    qr_data = f"พืช: {plant_name} | ชื่อวิทย์: {data['scientific_name']} | วงศ์: {data['family']} | สรรพคุณ: {data['benefit']}"
+    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    qr.add_data(qr_data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    return buffered.getvalue()
 
 # ==========================================
 # 1. หน้าหลัก (ค้นหา & QR Code)
@@ -102,31 +116,22 @@ if menu == "หน้าหลัก (ค้นหา & QR Code)":
                 st.info("ยังไม่มีรูปภาพประกอบสำหรับพืชชนิดนี้")
 
         with col2:
-            st.subheader("📱 QR Code ประจำต้นไม้")
-            qr_data = f"พืช: {plant_name} | ชื่อวิทย์: {data['scientific_name']} | ประโยชน์: {data['benefit']}"
-            
-            # สร้าง QR Code
-            qr = qrcode.QRCode(version=1, box_size=10, border=4)
-            qr.add_data(qr_data)
-            qr.make(fit=True)
-            img = qr.make_image(fill_color="black", back_color="white")
-            
-            # แปลงภาพเพื่อแสดงผลใน Streamlit
-            buffered = io.BytesIO()
-            img.save(buffered, format="PNG")
-            st.image(buffered.getvalue(), width=250)
-            st.success("สแกน QR Code นี้เพื่อดูข้อมูลพืชผ่านมือถือได้ทันที!")
+            st.subheader("📱 QR Code อัตโนมัติประจำต้นไม้")
+            qr_bytes = generate_qr_code(plant_name, data)
+            st.image(qr_bytes, width=250)
+            st.success("QR Code ถูกสร้างอัตโนมัติจากข้อมูลล่าสุด สามารถสแกนเพื่อดูข้อมูลพืชได้ทันที!")
 
 # ==========================================
-# 2. จัดการข้อมูลพืช & เพิ่มรูปภาพ (Admin Only)
+# 2. จัดการข้อมูลพืช (เพิ่ม / แก้ไข / ลบ) (Admin Only)
 # ==========================================
-elif menu == "จัดการข้อมูลพืช & เพิ่มรูปภาพ":
-    st.title("🛠️ ระบบจัดการข้อมูลพืชและรูปภาพ")
+elif menu == "จัดการข้อมูลพืช (เพิ่ม/แก้ไข/ลบ)":
+    st.title("🛠️ ระบบจัดการหลังบ้าน: ข้อมูลพืชพฤกษศาสตร์")
     
-    tab1, tab2 = st.tabs(["➕ เพิ่มพืชใหม่", "❌ ลบข้อมูลพืช"])
+    tab1, tab2, tab3 = st.tabs(["➕ เพิ่มพืชใหม่", "✏️ แก้ไขรายละเอียดพืช", "❌ ลบข้อมูลพืช"])
     
+    # --- Tab 1: เพิ่มพืชใหม่ ---
     with tab1:
-        st.subheader("เพิ่มข้อมูลพืชและอัปโหลดรูปภาพ")
+        st.subheader("เพิ่มข้อมูลพืชและอัปโหลดรูปภาพใหม่")
         with st.form("add_plant_form"):
             new_name = st.text_input("ชื่อพืช (ภาษาไทย/ชื่อสามัญ)")
             new_sci = st.text_input("ชื่อวิทยาศาสตร์")
@@ -134,25 +139,79 @@ elif menu == "จัดการข้อมูลพืช & เพิ่มร
             new_benefit = st.text_area("ประโยชน์ / สรรพคุณ")
             uploaded_file = st.file_uploader("อัปโหลดรูปภาพพืช (PNG, JPG)", type=["png", "jpg", "jpeg"])
             
-            submit_plant = st.form_submit_button("บันทึกข้อมูลพืช")
+            submit_plant = st.form_submit_button("บันทึกและสร้าง QR Code อัตโนมัติ")
             
             if submit_plant:
                 if new_name and new_sci:
-                    img_bytes = uploaded_file.read() if uploaded_file is not None else None
-                    st.session_state['plants'][new_name] = {
-                        "scientific_name": new_sci,
-                        "family": new_family,
-                        "benefit": new_benefit,
-                        "image": img_bytes
-                    }
-                    st.success(f"เพิ่มข้อมูลพืช '{new_name}' สำเร็จเรียบร้อยแล้ว!")
+                    if new_name in st.session_state['plants']:
+                        st.error("มีชื่อพืชนี้อยู่ในระบบแล้ว กรุณาใช้เมนูแก้ไขข้อมูล")
+                    else:
+                        img_bytes = uploaded_file.read() if uploaded_file is not None else None
+                        st.session_state['plants'][new_name] = {
+                            "scientific_name": new_sci,
+                            "family": new_family,
+                            "benefit": new_benefit,
+                            "image": img_bytes
+                        }
+                        st.success(f"เพิ่มข้อมูลพืช '{new_name}' และสร้าง QR Code เรียบร้อยแล้ว!")
                 else:
                     st.error("กรุณากรอกชื่อพืชและชื่อวิทยาศาสตร์ให้ครบถ้วน")
 
+    # --- Tab 2: แก้ไขรายละเอียดพืช ---
     with tab2:
+        st.subheader("แก้ไขรายละเอียดและสรรพคุณพืช")
+        if len(st.session_state['plants']) > 0:
+            selected_plant = st.selectbox("เลือกพืชที่ต้องการแก้ไข", list(st.session_state['plants'].keys()), key="edit_select")
+            current_data = st.session_state['plants'][selected_plant]
+
+            with st.form("edit_plant_form"):
+                edit_name = st.text_input("ชื่อพืช (เปลี่ยนชื่อได้)", value=selected_plant)
+                edit_sci = st.text_input("ชื่อวิทยาศาสตร์", value=current_data['scientific_name'])
+                edit_family = st.text_input("วงศ์ (Family)", value=current_data['family'])
+                edit_benefit = st.text_area("ประโยชน์ / สรรพคุณ", value=current_data['benefit'])
+                
+                st.write("---")
+                st.write("รูปภาพปัจจุบัน:")
+                if current_data['image'] is not None:
+                    st.image(current_data['image'], width=150)
+                else:
+                    st.info("ยังไม่มีรูปภาพ")
+
+                edit_file = st.file_uploader("อัปโหลดเปลี่ยนรูปภาพใหม่ (ถ้าต้องการเปลี่ยน)", type=["png", "jpg", "jpeg"], key="edit_img")
+                
+                submit_edit = st.form_submit_button("บันทึกการแก้ไข & อัปเดต QR Code")
+                
+                if submit_edit:
+                    if edit_name and edit_sci:
+                        # จัดการกรณีเปลี่ยนชื่อพืชหลัก
+                        if edit_name != selected_plant:
+                            if edit_name in st.session_state['plants']:
+                                st.error("ชื่อพืชใหม่นี้ซ้ำกับที่มีอยู่แล้วในระบบ")
+                                st.stop()
+                            else:
+                                st.session_state['plants'][edit_name] = st.session_state['plants'].pop(selected_plant)
+                        
+                        # อัปเดตข้อมูล
+                        target_data = st.session_state['plants'][edit_name]
+                        target_data['scientific_name'] = edit_sci
+                        target_data['family'] = edit_family
+                        target_data['benefit'] = edit_benefit
+                        
+                        if edit_file is not None:
+                            target_data['image'] = edit_file.read()
+                            
+                        st.success(f"แก้ไขข้อมูลพืช '{edit_name}' สำเร็จ! ระบบได้สร้าง QR Code ใหม่ให้อัตโนมัติแล้ว")
+                        st.rerun()
+                    else:
+                        st.error("กรุณากรอกชื่อพืชและชื่อวิทยาศาสตร์")
+        else:
+            st.info("ยังไม่มีข้อมูลพืชในระบบสำหรับแก้ไข")
+
+    # --- Tab 3: ลบข้อมูลพืช ---
+    with tab3:
         st.subheader("ลบข้อมูลพืชที่มีในระบบ")
         if len(st.session_state['plants']) > 0:
-            plant_to_delete = st.selectbox("เลือกพืชที่ต้องการลบ", list(st.session_state['plants'].keys()))
+            plant_to_delete = st.selectbox("เลือกพืชที่ต้องการลบ", list(st.session_state['plants'].keys()), key="del_select")
             if st.button("ยืนยันการลบพืช"):
                 del st.session_state['plants'][plant_to_delete]
                 st.success(f"ลบข้อมูลพืช '{plant_to_delete}' เรียบร้อยแล้ว!")
