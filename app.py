@@ -17,6 +17,7 @@ def load_plants():
             with open(PLANTS_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 for plant_name, plant_info in data.items():
+                    # ตรวจสอบและแปลง base64 กลับเป็น bytes
                     if plant_info.get("image_base64"):
                         try:
                             plant_info["image"] = base64.b64decode(plant_info["image_base64"])
@@ -40,8 +41,13 @@ def save_plants():
     serializable_data = {}
     for p_name, p_data in st.session_state['plants'].items():
         img_b64 = None
-        if p_data.get("image") is not None and isinstance(p_data["image"], bytes):
-            img_b64 = base64.b64encode(p_data["image"]).decode('utf-8')
+        img_data = p_data.get("image")
+        if img_data is not None:
+            if isinstance(img_data, bytes):
+                try:
+                    img_b64 = base64.b64encode(img_data).decode('utf-8')
+                except Exception:
+                    pass
         
         serializable_data[p_name] = {
             "scientific_name": p_data.get("scientific_name", ""),
@@ -164,9 +170,9 @@ if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
                 try:
                     st.image(img_data, caption=f"ภาพถ่าย {plant_name}", use_column_width=True)
                 except Exception:
-                    st.info("ไม่สามารถแสดงรูปภาพได้")
+                    st.warning("⚠️ ไฟล์รูปภาพเสียหาย กรุณาอัปโหลดรูปภาพใหม่อีกครั้งในเมนูจัดการพืช")
             else:
-                st.warning("⚠️ ยังไม่มีรูปภาพประกอบสำหรับพืชชนิดนี้")
+                st.warning("⚠️ ยังไม่มีรูปภาพประกอบสำหรับพืชชนิดนี้ (สามารถไปอัปโหลดได้ที่เมนูจัดการพืช)")
 
         with col2:
             st.subheader("📱 QR Code ประจำต้นไม้ (สแกนง่าย)")
@@ -227,15 +233,16 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                 edit_benefit = st.text_area("ประโยชน์ / สรรพคุณ", value=current_data.get('benefit', ''))
                 
                 st.write("---")
-                if current_data.get('image') is not None and isinstance(current_data['image'], bytes):
+                curr_img = current_data.get('image')
+                if curr_img is not None and isinstance(curr_img, bytes) and len(curr_img) > 0:
                     try:
-                        st.image(current_data['image'], width=150, caption="รูปภาพปัจจุบัน")
+                        st.image(curr_img, width=150, caption="รูปภาพปัจจุบันในระบบ")
                     except Exception:
-                        pass
+                        st.info("มีข้อมูลรูปภาพแต่แสดงผลไม่สำเร็จ")
                 else:
                     st.info("พืชนี้ยังไม่มีรูปภาพในระบบ")
 
-                edit_file = st.file_uploader("อัปโหลดรูปภาพใหม่ (ถ้าต้องการเปลี่ยน)", type=["png", "jpg", "jpeg"], key="edit_img")
+                edit_file = st.file_uploader("อัปโหลดรูปภาพใหม่ (หากต้องการเปลี่ยนหรือใส่รูปเพิ่ม)", type=["png", "jpg", "jpeg"], key="edit_img")
                 
                 submit_edit = st.form_submit_button("บันทึกการแก้ไข")
                 
@@ -253,7 +260,7 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                         target_data['family'] = edit_family
                         target_data['benefit'] = edit_benefit
                         
-                        # คงรูปภาพเดิมไว้ หากไม่ได้อัปโหลดไฟล์ใหม่เข้ามา
+                        # จัดการรูปภาพ: ถลมอัปโหลดใหม่ใช้ไฟล์ใหม่ ถ้างั้นคงรูปเดิมไว้
                         if edit_file is not None:
                             target_data['image'] = edit_file.read()
                         
