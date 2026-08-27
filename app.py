@@ -166,7 +166,6 @@ if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
     st.markdown("<p style='text-align: center; color: #555;'>โรงเรียนฐานปัญญา</p>", unsafe_allow_html=True)
     st.write("---")
 
-    # ดึงข้อมูลล่าสุดจาก session_state มาแสดงผลทันทีแบบ Real-time
     current_plants = st.session_state['plants']
 
     if not current_plants:
@@ -240,7 +239,8 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                             "image": img_bytes
                         }
                         save_plants()
-                        st.success(f"เพิ่มข้อมูลพืช '{new_name}' เรียบร้อยแล้ว! (ข้อมูลอัปเดตทันที)")
+                        st.success(f"เพิ่มข้อมูลพืช '{new_name}' เรียบร้อยแล้ว!")
+                        st.rerun() # รีเฟรชหน้าจออัตโนมัติทันที
                 else:
                     st.error("กรุณากรอกชื่อพืชและชื่อวิทยาศาสตร์")
 
@@ -299,7 +299,8 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                                 st.stop()
                         
                         save_plants()
-                        st.success(f"แก้ไขข้อมูลพืชสำเร็จ! (ข้อมูลอัปเดตทันที)")
+                        st.success(f"แก้ไขข้อมูลพืชสำเร็จ!")
+                        st.rerun() # รีเฟรชหน้าจออัตโนมัติทันที
                     else:
                         st.error("กรุณากรอกข้อมูลให้ครบถ้วน")
         else:
@@ -313,7 +314,7 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                 del st.session_state['plants'][plant_to_delete]
                 save_plants()
                 st.success("ลบข้อมูลพืชเรียบร้อยแล้ว!")
-                st.rerun()
+                st.rerun() # รีเฟรชหน้าจออัตโนมัติทันที
         else:
             st.info("ไม่มีข้อมูลพืชให้ลบ")
 
@@ -339,7 +340,8 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
                     else:
                         st.session_state['students'][new_id] = {"name": new_name, "class": new_class, "role": new_role}
                         save_students()
-                        st.success("เพิ่มนักเรียนสำเร็จ! (อัปเดตทันที)")
+                        st.success("เพิ่มนักเรียนสำเร็จ!")
+                        st.rerun() # รีเฟรชหน้าจออัตโนมัติทันที
                 else:
                     st.error("กรุณากรอกข้อมูลให้ครบ")
 
@@ -358,7 +360,8 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
                         st.session_state['students'][e_id] = st.session_state['students'].pop(selected_stu)
                     st.session_state['students'][e_id].update({"name": e_name, "class": e_class, "role": e_role})
                     save_students()
-                    st.success("แก้ไขสำเร็จ! (อัปเดตทันที)")
+                    st.success("แก้ไขสำเร็จ!")
+                    st.rerun() # รีเฟรชหน้าจออัตโนมัติทันที
 
     with tab3:
         if st.session_state['students']:
@@ -370,4 +373,4 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
                     del st.session_state['students'][d_stu]
                     save_students()
                     st.success("ลบสำเร็จ!")
-                    st.rerun()
+                    st.rerun() # รีเฟรชหน้าจออัตโนมัติทันที
