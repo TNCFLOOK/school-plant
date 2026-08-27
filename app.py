@@ -17,10 +17,8 @@ STUDENTS_FILE = "students_data.json"
 def process_image(upload_file):
     try:
         img = Image.open(upload_file)
-        # แปลงเป็น RGB เพื่อลบปัญหาพื้นหลังโปร่งใสหรือไฟล์แปลกๆ
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
-        # ย่อขนาดรูปภาพไม่ให้เกิน 800px เพื่อลดขนาดไฟล์ JSON ป้องกันระบบพัง
         img.thumbnail((800, 800))
         buffered = io.BytesIO()
         img.save(buffered, format="JPEG", quality=85)
@@ -184,9 +182,8 @@ if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
             img_data = data.get('image')
             if img_data is not None and isinstance(img_data, bytes) and len(img_data) > 50:
                 try:
-                    # โหลดผ่าน PIL ก่อนแสดงผลเพื่อป้องกันปัญหาไฟล์พัง
                     image_to_show = Image.open(io.BytesIO(img_data))
-                    st.image(image_to_show, caption=f"ภาพถ่าย {plant_name}", use_column_width=True)
+                    st.image(image_to_show, caption=f"ภาพถ่าย {plant_name}", use_container_width=True)
                 except Exception as e:
                     st.warning(f"⚠️ ไม่สามารถแสดงรูปภาพได้ ({e}) กรุณาอัปโหลดรูปภาพใหม่อีกครั้ง")
             else:
@@ -288,10 +285,8 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                         target_data['family'] = edit_family
                         target_data['benefit'] = edit_benefit
                         
-                        # หากเลือกลบ ให้ล้างค่าทิ้ง
                         if delete_image_checkbox:
                             target_data['image'] = None
-                        # หากอัปโหลดใหม่ ให้ส่งเข้าตัวจัดการรูปอัตโนมัติ
                         elif edit_file is not None:
                             processed_img = process_image(edit_file)
                             if processed_img:
