@@ -94,6 +94,7 @@ def save_students():
     except Exception:
         pass
 
+# โหลดข้อมูลเข้า Session State ครั้งแรก
 if 'plants' not in st.session_state:
     st.session_state['plants'] = load_plants()
 
@@ -165,11 +166,14 @@ if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
     st.markdown("<p style='text-align: center; color: #555;'>โรงเรียนฐานปัญญา</p>", unsafe_allow_html=True)
     st.write("---")
 
-    if not st.session_state['plants']:
+    # ดึงข้อมูลล่าสุดจาก session_state มาแสดงผลทันทีแบบ Real-time
+    current_plants = st.session_state['plants']
+
+    if not current_plants:
         st.warning("ยังไม่มีข้อมูลพืชในระบบ กรุณาให้แอดมินเพิ่มข้อมูลพืช")
     else:
-        plant_name = st.selectbox("🔍 เลือกหรือค้นหาชื่อพืช", list(st.session_state['plants'].keys()))
-        data = st.session_state['plants'][plant_name]
+        plant_name = st.selectbox("🔍 เลือกหรือค้นหาชื่อพืช", list(current_plants.keys()))
+        data = current_plants[plant_name]
 
         col1, col2 = st.columns([1, 1])
 
@@ -208,7 +212,7 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
     
     with tab1:
         st.subheader("เพิ่มข้อมูลพืชและอัปโหลดรูปภาพใหม่")
-        with st.form("add_plant_form"):
+        with st.form("add_plant_form", clear_on_submit=True):
             new_name = st.text_input("ชื่อพืช (ภาษาไทย)")
             new_sci = st.text_input("ชื่อวิทยาศาสตร์")
             new_family = st.text_input("วงศ์ (Family)")
@@ -236,8 +240,7 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                             "image": img_bytes
                         }
                         save_plants()
-                        st.success(f"เพิ่มข้อมูลพืช '{new_name}' เรียบร้อยแล้ว!")
-                        st.rerun()
+                        st.success(f"เพิ่มข้อมูลพืช '{new_name}' เรียบร้อยแล้ว! (ข้อมูลอัปเดตทันที)")
                 else:
                     st.error("กรุณากรอกชื่อพืชและชื่อวิทยาศาสตร์")
 
@@ -296,8 +299,7 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                                 st.stop()
                         
                         save_plants()
-                        st.success(f"แก้ไขข้อมูลพืชสำเร็จ!")
-                        st.rerun()
+                        st.success(f"แก้ไขข้อมูลพืชสำเร็จ! (ข้อมูลอัปเดตทันที)")
                     else:
                         st.error("กรุณากรอกข้อมูลให้ครบถ้วน")
         else:
@@ -324,7 +326,7 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
     tab1, tab2, tab3 = st.tabs(["➕ เพิ่มนักเรียน", "✏️ แก้ไขข้อมูล", "❌ ลบนักเรียน"])
     
     with tab1:
-        with st.form("add_student_form"):
+        with st.form("add_student_form", clear_on_submit=True):
             new_id = st.text_input("เลขประจำตัว (เช่น 65002)").strip()
             new_name = st.text_input("ชื่อ-นามสกุล").strip()
             new_class = st.text_input("ชั้นเรียน (เช่น ม.6/1)").strip()
@@ -337,8 +339,7 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
                     else:
                         st.session_state['students'][new_id] = {"name": new_name, "class": new_class, "role": new_role}
                         save_students()
-                        st.success("เพิ่มนักเรียนสำเร็จ!")
-                        st.rerun()
+                        st.success("เพิ่มนักเรียนสำเร็จ! (อัปเดตทันที)")
                 else:
                     st.error("กรุณากรอกข้อมูลให้ครบ")
 
@@ -357,8 +358,7 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
                         st.session_state['students'][e_id] = st.session_state['students'].pop(selected_stu)
                     st.session_state['students'][e_id].update({"name": e_name, "class": e_class, "role": e_role})
                     save_students()
-                    st.success("แก้ไขสำเร็จ!")
-                    st.rerun()
+                    st.success("แก้ไขสำเร็จ! (อัปเดตทันที)")
 
     with tab3:
         if st.session_state['students']:
