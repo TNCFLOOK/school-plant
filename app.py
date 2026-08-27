@@ -16,56 +16,66 @@ if 'plants' not in st.session_state:
         }
     }
 
-if 'users' not in st.session_state:
-    # ค่าเริ่มต้น: แอดมินหลักเลขประจำตัว 'admin01'
-    st.session_state['users'] = {
-        "admin01": {"name": "ผู้ดูแลระบบหลัก", "role": "Admin"}
+if 'students' not in st.session_state:
+    # ฐานข้อมูลนักเรียน / ผู้ใช้งาน (เลขประจำตัว : {"name": ชื่อ, "class": ชั้นเรียน, "role": บทบาท})
+    st.session_state['students'] = {
+        "admin01": {"name": "ผู้ดูแลระบบหลัก", "class": "คณะครู", "role": "Admin"},
+        "65001": {"name": "เด็กชายสมชาย เรียนดี", "class": "ม.3/1", "role": "User"}
     }
 
 if 'logged_in_user' not in st.session_state:
     st.session_state['logged_in_user'] = None
 
-if 'user_role' not in st.session_state:
-    st.session_state['user_role'] = None
-
-# --- ส่วนของการเข้าสู่ระบบ (Login Sidebar) ---
-st.sidebar.title("🔐 เข้าสู่ระบบ")
-
+# ==========================================
+# 🔐 ระบบหน้า Login ก่อนเข้าใช้งานระบบหลัก
+# ==========================================
 if st.session_state['logged_in_user'] is None:
-    login_id = st.sidebar.text_input("กรอกเลขประจำตัว (นักเรียน/ครู/แอดมิน)")
-    if st.sidebar.button("เข้าสู่ระบบ"):
-        if not login_id:
-            st.sidebar.error("กรุณากรอกเลขประจำตัว")
-        elif login_id in st.session_state['users']:
-            st.session_state['logged_in_user'] = login_id
-            st.session_state['user_role'] = st.session_state['users'][login_id]["role"]
-            st.sidebar.success(f"ยินดีต้อนรับคุณ {st.session_state['users'][login_id]['name']}")
-            st.rerun()
-        else:
-            # ถ้ารหัสไม่ตรงในระบบ ให้ถือว่าเป็นนักเรียน/คุณครูทั่วไปโดยอัตโนมัติ
-            st.session_state['logged_in_user'] = login_id
-            st.session_state['user_role'] = "User"
-            st.sidebar.success(f"เข้าสู่ระบบสำเร็จ (ผู้ใช้งานทั่วไป: {login_id})")
-            st.rerun()
-else:
-    st.sidebar.info((
-        f"เข้าสู่ระบบโดย: {st.session_state['logged_in_user']}"
-        f" ({st.session_state['user_role']})"
-    ))
-    if st.sidebar.button("ออกจากระบบ"):
-        st.session_state['logged_in_user'] = None
-        st.session_state['user_role'] = None
-        st.rerun()
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.markdown("<h2 style='text-align: center; color: #2E7D32;'>🌿 เข้าสู่ระบบพฤกษศาสตร์โรงเรียน</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #555;'>กรุณากรอกเลขประจำตัวเพื่อเข้าใช้งาน</p>", unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            input_id = st.text_input("เลขประจำตัว (นักเรียน / แอดมิน)")
+            submit_login = st.form_submit_button("เข้าสู่ระบบ", use_container_width=True)
+            
+            if submit_login:
+                if not input_id:
+                    st.error("กรุณากรอกเลขประจำตัว")
+                elif input_id in st.session_state['students']:
+                    st.session_state['logged_in_user'] = input_id
+                    st.success("เข้าสู่ระบบสำเร็จ!")
+                    st.rerun()
+                else:
+                    st.error("ไม่พบเลขประจำตัวนี้ในระบบ กรุณาติดต่อแอดมินเพื่อลงทะเบียน")
+    
+    # หยุดการทำงานหน้าอื่นไว้จนกว่าจะ Login สำเร็จ
+    st.stop()
+
+# ==========================================
+# 🖥️ เมื่อเข้าสู่ระบบแล้ว (Sidebar และเมนูหลัก)
+# ==========================================
+current_user_id = st.session_state['logged_in_user']
+user_info = st.session_state['students'][current_user_id]
+
+st.sidebar.title("👤 ข้อมูลผู้ใช้งาน")
+st.sidebar.info(f"**ชื่อ:** {user_info['name']}\n\n**เลขประจำตัว:** `{current_user_id}`\n\n**ชั้นเรียน:** {user_info['class']}\n\n**สถานะ:** {user_info['role']}")
+
+if st.sidebar.button("🚪 ออกจากระบบ", use_container_width=True):
+    st.session_state['logged_in_user'] = None
+    st.rerun()
 
 st.sidebar.markdown("---")
 
-# --- เมนูหลัก ---
-menu_options = ["หน้าหลัก (ค้นหา & QR Code)"]
-if st.session_state['user_role'] == "Admin":
-    menu_options.append("จัดการข้อมูลพืช (เพิ่ม/แก้ไข/ลบ)")
-    menu_options.append("จัดการผู้ดูแลระบบ (Admin)")
+# กำหนดเมนูตามสิทธิ์ (Admin หรือ User ทั่วไป)
+menu_options = ["🏠 หน้าหลัก (ค้นหา & QR Code)"]
+if user_info['role'] == "Admin":
+    menu_options.append("🛠️ จัดการข้อมูลพืช (เพิ่ม/แก้ไข/ลบ)")
+    menu_options.append("👥 จัดการข้อมูลนักเรียน/ผู้ใช้")
 
-menu = st.sidebar.selectbox("เมนูการใช้งาน", menu_options)
+menu = st.sidebar.selectbox("📂 เมนูการใช้งาน", menu_options)
 
 # ==========================================
 # ฟังก์ชันช่วยสร้าง QR Code
@@ -82,17 +92,11 @@ def generate_qr_code(plant_name, data):
     return buffered.getvalue()
 
 # ==========================================
-# 1. หน้าหลัก (ค้นหา & QR Code)
+# 1. หน้าหลัก (ค้นหาพืช & QR Code)
 # ==========================================
-if menu == "หน้าหลัก (ค้นหา & QR Code)":
-    st.markdown(
-        "<h1 style='text-align: center; color: #2E7D32;'>🌿 ระบบสารสนเทศพฤกษศาสตร์โรงเรียน</h1>",
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        "<p style='text-align: center; color: #555;'>โรงเรียนฐานปัญญา</p>",
-        unsafe_allow_html=True
-    )
+if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
+    st.markdown("<h1 style='text-align: center; color: #2E7D32;'>🌿 ระบบสารสนเทศพฤกษศาสตร์โรงเรียน</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #555;'>โรงเรียนฐานปัญญา</p>", unsafe_allow_html=True)
     st.write("---")
 
     if len(st.session_state['plants']) == 0:
@@ -109,7 +113,6 @@ if menu == "หน้าหลัก (ค้นหา & QR Code)":
             st.write(f"**วงศ์:** {data['family']}")
             st.write(f"**ประโยชน์/สรรพคุณ:** {data['benefit']}")
             
-            # แสดงรูปภาพถ้ามี
             if data['image'] is not None:
                 st.image(data['image'], caption=f"ภาพถ่าย {plant_name}", use_column_width=True)
             else:
@@ -122,14 +125,13 @@ if menu == "หน้าหลัก (ค้นหา & QR Code)":
             st.success("QR Code ถูกสร้างอัตโนมัติจากข้อมูลล่าสุด สามารถสแกนเพื่อดูข้อมูลพืชได้ทันที!")
 
 # ==========================================
-# 2. จัดการข้อมูลพืช (เพิ่ม / แก้ไข / ลบ) (Admin Only)
+# 2. จัดการข้อมูลพืช (Admin Only)
 # ==========================================
-elif menu == "จัดการข้อมูลพืช (เพิ่ม/แก้ไข/ลบ)":
-    st.title("🛠️ ระบบจัดการหลังบ้าน: ข้อมูลพืชพฤกษศาสตร์")
+elif menu == "🛠️ จัดการข้อมูลพืช (เพิ่ม/แก้ไข/ลบ)":
+    st.title("🛠️ ระบบหลังบ้าน: จัดการข้อมูลพืชพฤกษศาสตร์")
     
     tab1, tab2, tab3 = st.tabs(["➕ เพิ่มพืชใหม่", "✏️ แก้ไขรายละเอียดพืช", "❌ ลบข้อมูลพืช"])
     
-    # --- Tab 1: เพิ่มพืชใหม่ ---
     with tab1:
         st.subheader("เพิ่มข้อมูลพืชและอัปโหลดรูปภาพใหม่")
         with st.form("add_plant_form"):
@@ -157,11 +159,10 @@ elif menu == "จัดการข้อมูลพืช (เพิ่ม/แ
                 else:
                     st.error("กรุณากรอกชื่อพืชและชื่อวิทยาศาสตร์ให้ครบถ้วน")
 
-    # --- Tab 2: แก้ไขรายละเอียดพืช ---
     with tab2:
         st.subheader("แก้ไขรายละเอียดและสรรพคุณพืช")
         if len(st.session_state['plants']) > 0:
-            selected_plant = st.selectbox("เลือกพืชที่ต้องการแก้ไข", list(st.session_state['plants'].keys()), key="edit_select")
+            selected_plant = st.selectbox("เลือกพืชที่ต้องการแก้ไข", list(st.session_state['plants'].keys()), key="edit_plant_select")
             current_data = st.session_state['plants'][selected_plant]
 
             with st.form("edit_plant_form"):
@@ -183,7 +184,6 @@ elif menu == "จัดการข้อมูลพืช (เพิ่ม/แ
                 
                 if submit_edit:
                     if edit_name and edit_sci:
-                        # จัดการกรณีเปลี่ยนชื่อพืชหลัก
                         if edit_name != selected_plant:
                             if edit_name in st.session_state['plants']:
                                 st.error("ชื่อพืชใหม่นี้ซ้ำกับที่มีอยู่แล้วในระบบ")
@@ -191,7 +191,6 @@ elif menu == "จัดการข้อมูลพืช (เพิ่ม/แ
                             else:
                                 st.session_state['plants'][edit_name] = st.session_state['plants'].pop(selected_plant)
                         
-                        # อัปเดตข้อมูล
                         target_data = st.session_state['plants'][edit_name]
                         target_data['scientific_name'] = edit_sci
                         target_data['family'] = edit_family
@@ -200,18 +199,17 @@ elif menu == "จัดการข้อมูลพืช (เพิ่ม/แ
                         if edit_file is not None:
                             target_data['image'] = edit_file.read()
                             
-                        st.success(f"แก้ไขข้อมูลพืช '{edit_name}' สำเร็จ! ระบบได้สร้าง QR Code ใหม่ให้อัตโนมัติแล้ว")
+                        st.success(f"แก้ไขข้อมูลพืช '{edit_name}' สำเร็จ!")
                         st.rerun()
                     else:
                         st.error("กรุณากรอกชื่อพืชและชื่อวิทยาศาสตร์")
         else:
             st.info("ยังไม่มีข้อมูลพืชในระบบสำหรับแก้ไข")
 
-    # --- Tab 3: ลบข้อมูลพืช ---
     with tab3:
         st.subheader("ลบข้อมูลพืชที่มีในระบบ")
         if len(st.session_state['plants']) > 0:
-            plant_to_delete = st.selectbox("เลือกพืชที่ต้องการลบ", list(st.session_state['plants'].keys()), key="del_select")
+            plant_to_delete = st.selectbox("เลือกพืชที่ต้องการลบ", list(st.session_state['plants'].keys()), key="del_plant_select")
             if st.button("ยืนยันการลบพืช"):
                 del st.session_state['plants'][plant_to_delete]
                 st.success(f"ลบข้อมูลพืช '{plant_to_delete}' เรียบร้อยแล้ว!")
@@ -220,29 +218,86 @@ elif menu == "จัดการข้อมูลพืช (เพิ่ม/แ
             st.info("ไม่มีข้อมูลพืชให้ลบ")
 
 # ==========================================
-# 3. จัดการผู้ดูแลระบบ (Admin Only)
+# 3. จัดการข้อมูลนักเรียน/ผู้ใช้ (Admin Only)
 # ==========================================
-elif menu == "จัดการผู้ดูแลระบบ (Admin)":
-    st.title("🛡️ จัดการสิทธิ์ผู้ดูแลระบบ (Admin)")
+elif menu == "👥 จัดการข้อมูลนักเรียน/ผู้ใช้":
+    st.title("👥 ระบบหลังบ้าน: จัดการข้อมูลนักเรียนและผู้ใช้งาน")
     
-    with st.form("add_admin_form"):
-        st.subheader("เพิ่มเลขประจำตัวแอดมินใหม่")
-        new_admin_id = st.text_input("เลขประจำตัวครู/แอดมินใหม่")
-        new_admin_name = st.text_input("ชื่อ-นามสกุล ผู้ดูแลระบบ")
-        
-        submit_admin = st.form_submit_button("บันทึกสิทธิ์แอดมิน")
-        
-        if submit_admin:
-            if new_admin_id and new_admin_name:
-                st.session_state['users'][new_admin_id] = {
-                    "name": new_admin_name,
-                    "role": "Admin"
-                }
-                st.success(f"เพิ่มสิทธิ์แอดมินให้เลขประจำตัว '{new_admin_id}' สำเร็จ!")
-            else:
-                st.error("กรุณากรอกข้อมูลให้ครบถ้วน")
+    tab1, tab2, tab3 = st.tabs(["➕ เพิ่มนักเรียนใหม่", "✏️ แก้ไขข้อมูลนักเรียน", "❌ ลบนักเรียนออกจากระบบ"])
+    
+    with tab1:
+        st.subheader("เพิ่มเลขประจำตัว ชื่อ และชั้นเรียนของนักเรียน")
+        with st.form("add_student_form"):
+            new_id = st.text_input("เลขประจำตัวนักเรียน (เช่น 65002)")
+            new_name = st.text_input("ชื่อ-นามสกุล นักเรียน")
+            new_class = st.text_input("ชั้นเรียน (เช่น ม.3/1 หรือ ม.1/2)")
+            new_role = st.selectbox("กำหนดบทบาท", ["User", "Admin"])
+            
+            submit_student = st.form_submit_button("บันทึกข้อมูลนักเรียน")
+            
+            if submit_student:
+                if new_id and new_name and new_class:
+                    if new_id in st.session_state['students']:
+                        st.error("เลขประจำตัวนี้มีอยู่ในระบบแล้ว!")
+                    else:
+                        st.session_state['students'][new_id] = {
+                            "name": new_name,
+                            "class": new_class,
+                            "role": new_role
+                        }
+                        st.success(f"เพิ่มนักเรียน '{new_name}' (เลขประจำตัว: {new_id}) สำเร็จ!")
+                else:
+                    st.error("กรุณากรอกข้อมูลให้ครบทุกช่อง")
+
+    with tab2:
+        st.subheader("แก้ไขชื่อ ชั้นเรียน หรือเปลี่ยนเลขประจำตัวนักเรียน")
+        if len(st.session_state['students']) > 0:
+            selected_student_id = st.selectbox("เลือกนักเรียนที่ต้องการแก้ไข (จากเลขประจำตัว)", list(st.session_state['students'].keys()), key="edit_stu_select")
+            current_stu_data = st.session_state['students'][selected_student_id]
+
+            with st.form("edit_student_form"):
+                edit_id = st.text_input("เลขประจำตัว (แก้ไขได้)", value=selected_student_id)
+                edit_name = st.text_input("ชื่อ-นามสกุล", value=current_stu_data['name'])
+                edit_class = st.text_input("ชั้นเรียน", value=current_stu_data['class'])
+                edit_role = st.selectbox("บทบาทในระบบ", ["User", "Admin"], index=0 if current_stu_data['role']=="User" else 1)
                 
-    st.write("---")
-    st.subheader("📋 รายชื่อผู้ดูแลระบบทั้งหมดในปัจจุบัน")
-    for uid, info in st.session_state['users'].items():
-        st.write(f"- **เลขประจำตัว:** `{uid}` | **ชื่อ:** {info['name']} | **สถานะ:** {info['role']}")
+                submit_edit_stu = st.form_submit_button("บันทึกการแก้ไขข้อมูลนักเรียน")
+                
+                if submit_edit_stu:
+                    if edit_id and edit_name and edit_class:
+                        # ถมีการเปลี่ยนเลขประจำตัว
+                        if edit_id != selected_student_id:
+                            if edit_id in st.session_state['students']:
+                                st.error("เลขประจำตัวใหม่นี้ซ้ำกับผู้อื่นในระบบ")
+                                st.stop()
+                            else:
+                                st.session_state['students'][edit_id] = st.session_state['students'].pop(selected_student_id)
+                        
+                        # อัปเดตข้อมูล
+                        target_stu = st.session_state['students'][edit_id]
+                        target_stu['name'] = edit_name
+                        target_stu['class'] = edit_class
+                        target_stu['role'] = edit_role
+                        
+                        st.success(f"แก้ไขข้อมูลนักเรียนเรียบร้อยแล้ว!")
+                        st.rerun()
+                    else:
+                        st.error("กรุณากรอกข้อมูลให้ครบถ้วน")
+        else:
+            st.info("ยังไม่มีข้อมูลนักเรียนในระบบ")
+
+    with tab3:
+        st.subheader("ลบข้อมูลนักเรียนออกจากระบบ")
+        if len(st.session_state['students']) > 0:
+            stu_to_delete = st.selectbox("เลือกนักเรียนที่ต้องการลบ", list(st.session_state['students'].keys()), key="del_stu_select")
+            st.warning(f"กำลังจะลบ: {st.session_state['students'][stu_to_delete]['name']} ({stu_to_delete})")
+            
+            if st.button("ยืนยันการลบนักเรียน"):
+                if stu_to_delete == current_user_id:
+                    st.error("คุณไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้!")
+                else:
+                    del st.session_state['students'][stu_to_delete]
+                    st.success("ลบข้อมูลนักเรียนเรียบร้อยแล้ว!")
+                    st.rerun()
+        else:
+            st.info("ไม่มีข้อมูลนักเรียนให้ลบ")
