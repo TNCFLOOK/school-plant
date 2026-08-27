@@ -20,7 +20,7 @@ def load_plants():
                     if plant_info.get("image_base64"):
                         try:
                             decoded = base64.b64decode(plant_info["image_base64"])
-                            plant_info["image"] = decoded if len(decoded) > 10 else None
+                            plant_info["image"] = decoded if len(decoded) > 50 else None
                         except Exception:
                             plant_info["image"] = None
                     else:
@@ -42,7 +42,7 @@ def save_plants():
     for p_name, p_data in st.session_state['plants'].items():
         img_b64 = None
         img_data = p_data.get("image")
-        if img_data is not None and isinstance(img_data, bytes) and len(img_data) > 10:
+        if img_data is not None and isinstance(img_data, bytes) and len(img_data) > 50:
             try:
                 img_b64 = base64.b64encode(img_data).decode('utf-8')
             except Exception:
@@ -165,11 +165,11 @@ if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
             st.write(f"**ประโยชน์/สรรพคุณ:** {data.get('benefit', '-')}")
             
             img_data = data.get('image')
-            if img_data is not None and isinstance(img_data, bytes) and len(img_data) > 10:
+            if img_data is not None and isinstance(img_data, bytes) and len(img_data) > 50:
                 try:
                     st.image(img_data, caption=f"ภาพถ่าย {plant_name}", use_column_width=True)
                 except Exception:
-                    st.warning("⚠️ ไฟล์รูปภาพเสียหาย กรุณาอัปโหลดรูปภาพใหม่อีกครั้งในเมนูจัดการพืช")
+                    st.warning("⚠️ ไฟล์รูปภาพไม่ถูกต้อง กรุณาอัปโหลดรูปภาพใหม่อีกครั้ง")
             else:
                 st.warning("⚠️ ยังไม่มีรูปภาพประกอบสำหรับพืชชนิดนี้ (สามารถไปอัปโหลดได้ที่เมนูจัดการพืช)")
 
@@ -197,7 +197,7 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
             new_sci = st.text_input("ชื่อวิทยาศาสตร์")
             new_family = st.text_input("วงศ์ (Family)")
             new_benefit = st.text_area("ประโยชน์ / สรรพคุณ")
-            uploaded_file = st.file_uploader("อัปโหลดรูปภาพพืช (PNG, JPG)", type=["png", "jpg", "jpeg"])
+            uploaded_file = st.file_uploader("อัปโหลดรูปภาพพืช (รองรับไฟล์ JPG, JPEG, PNG)", type=["png", "jpg", "jpeg"])
             
             submit_plant = st.form_submit_button("บันทึกข้อมูลพืช")
             
@@ -233,8 +233,9 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                 
                 st.write("---")
                 curr_img = current_data.get('image')
-                has_valid_img = (curr_img is not None and isinstance(curr_img, bytes) and len(curr_img) > 10)
+                has_valid_img = (curr_img is not None and isinstance(curr_img, bytes) and len(curr_img) > 50)
                 
+                delete_image_checkbox = False
                 if has_valid_img:
                     try:
                         st.image(curr_img, width=150, caption="รูปภาพปัจจุบันในระบบ")
@@ -243,9 +244,8 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                     delete_image_checkbox = st.checkbox("🗑️ ติ๊กเพื่อลบรูปภาพนี้ออก")
                 else:
                     st.info("พืชนี้ยังไม่มีรูปภาพในระบบ")
-                    delete_image_checkbox = False
 
-                edit_file = st.file_uploader("อัปโหลดรูปภาพใหม่ (หากต้องการเปลี่ยน)", type=["png", "jpg", "jpeg"], key="edit_img")
+                edit_file = st.file_uploader("อัปโหลดรูปภาพใหม่ (รองรับไฟล์ JPG, JPEG, PNG)", type=["png", "jpg", "jpeg"], key="edit_img")
                 
                 submit_edit = st.form_submit_button("บันทึกการแก้ไข")
                 
@@ -263,7 +263,6 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                         target_data['family'] = edit_family
                         target_data['benefit'] = edit_benefit
                         
-                        # จัดการสถานะรูปภาพ (ลบรูป / เปลี่ยนรูปใหม่ / คงรูปเดิม)
                         if delete_image_checkbox:
                             target_data['image'] = None
                         elif edit_file is not None:
