@@ -5,7 +5,7 @@ import io
 
 st.set_page_config(page_title="ระบบสารสนเทศพฤกษศาสตร์โรงเรียน", page_icon="🌿", layout="wide")
 
-# --- กำหนดค่าเริ่มต้นใน Session State ---
+# --- กำหนดค่าเริ่มต้นใน Session State (ใช้ฐานข้อมูลกลางที่จำค่าได้ตลอดการใช้งานเซสชัน) ---
 if 'plants' not in st.session_state:
     st.session_state['plants'] = {
         "ราชพฤกษ์ (คูน)": {
@@ -17,7 +17,7 @@ if 'plants' not in st.session_state:
     }
 
 if 'students' not in st.session_state:
-    # ฐานข้อมูลนักเรียน / ผู้ใช้งาน (เลขประจำตัว : {"name": ชื่อ, "class": ชั้นเรียน, "role": บทบาท})
+    # ฐานข้อมูลเริ่มต้น (รวมแอดมินและนักเรียนตัวอย่าง)
     st.session_state['students'] = {
         "admin01": {"name": "ผู้ดูแลระบบหลัก", "class": "คณะครู", "role": "Admin"},
         "65001": {"name": "เด็กชายสมชาย เรียนดี", "class": "ม.3/1", "role": "User"}
@@ -37,8 +37,9 @@ if st.session_state['logged_in_user'] is None:
         st.markdown("<h2 style='text-align: center; color: #2E7D32;'>🌿 เข้าสู่ระบบพฤกษศาสตร์โรงเรียน</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #555;'>กรุณากรอกเลขประจำตัวเพื่อเข้าใช้งาน</p>", unsafe_allow_html=True)
         
+        # ใช้ Form สำหรับหน้า Login
         with st.form("login_form"):
-            input_id = st.text_input("เลขประจำตัว (นักเรียน / แอดมิน)")
+            input_id = st.text_input("เลขประจำตัว (นักเรียน / แอดมิน)").strip()
             submit_login = st.form_submit_button("เข้าสู่ระบบ", use_container_width=True)
             
             if submit_login:
@@ -49,7 +50,7 @@ if st.session_state['logged_in_user'] is None:
                     st.success("เข้าสู่ระบบสำเร็จ!")
                     st.rerun()
                 else:
-                    st.error("ไม่พบเลขประจำตัวนี้ในระบบ กรุณาติดต่อแอดมินเพื่อลงทะเบียน")
+                    st.error(f"ไม่พบเลขประจำตัว '{input_id}' นี้ในระบบ กรุณาให้แอดมินเพิ่มข้อมูลก่อนครับ")
     
     # หยุดการทำงานหน้าอื่นไว้จนกว่าจะ Login สำเร็จ
     st.stop()
@@ -228,9 +229,9 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
     with tab1:
         st.subheader("เพิ่มเลขประจำตัว ชื่อ และชั้นเรียนของนักเรียน")
         with st.form("add_student_form"):
-            new_id = st.text_input("เลขประจำตัวนักเรียน (เช่น 65002)")
-            new_name = st.text_input("ชื่อ-นามสกุล นักเรียน")
-            new_class = st.text_input("ชั้นเรียน (เช่น ม.3/1 หรือ ม.1/2)")
+            new_id = st.text_input("เลขประจำตัวนักเรียน (เช่น 65002)").strip()
+            new_name = st.text_input("ชื่อ-นามสกุล นักเรียน").strip()
+            new_class = st.text_input("ชั้นเรียน (เช่น ม.3/1 หรือ ม.1/2)").strip()
             new_role = st.selectbox("กำหนดบทบาท", ["User", "Admin"])
             
             submit_student = st.form_submit_button("บันทึกข้อมูลนักเรียน")
@@ -238,14 +239,14 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
             if submit_student:
                 if new_id and new_name and new_class:
                     if new_id in st.session_state['students']:
-                        st.error("เลขประจำตัวนี้มีอยู่ในระบบแล้ว!")
+                        st.error(f"เลขประจำตัว '{new_id}' นี้มีอยู่ในระบบแล้ว!")
                     else:
                         st.session_state['students'][new_id] = {
                             "name": new_name,
                             "class": new_class,
                             "role": new_role
                         }
-                        st.success(f"เพิ่มนักเรียน '{new_name}' (เลขประจำตัว: {new_id}) สำเร็จ!")
+                        st.success(f"เพิ่มนักเรียน '{new_name}' (เลขประจำตัว: {new_id}) สำเร็จเรียบร้อย! สามารถนำไปใช้ล็อกอินได้ทันที")
                 else:
                     st.error("กรุณากรอกข้อมูลให้ครบทุกช่อง")
 
@@ -256,16 +257,16 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
             current_stu_data = st.session_state['students'][selected_student_id]
 
             with st.form("edit_student_form"):
-                edit_id = st.text_input("เลขประจำตัว (แก้ไขได้)", value=selected_student_id)
-                edit_name = st.text_input("ชื่อ-นามสกุล", value=current_stu_data['name'])
-                edit_class = st.text_input("ชั้นเรียน", value=current_stu_data['class'])
+                edit_id = st.text_input("เลขประจำตัว (แก้ไขได้)", value=selected_student_id).strip()
+                edit_name = st.text_input("ชื่อ-นามสกุล", value=current_stu_data['name']).strip()
+                edit_class = st.text_input("ชั้นเรียน", value=current_stu_data['class']).strip()
                 edit_role = st.selectbox("บทบาทในระบบ", ["User", "Admin"], index=0 if current_stu_data['role']=="User" else 1)
                 
                 submit_edit_stu = st.form_submit_button("บันทึกการแก้ไขข้อมูลนักเรียน")
                 
                 if submit_edit_stu:
                     if edit_id and edit_name and edit_class:
-                        # ถมีการเปลี่ยนเลขประจำตัว
+                        # ถ้ามีการเปลี่ยนเลขประจำตัว
                         if edit_id != selected_student_id:
                             if edit_id in st.session_state['students']:
                                 st.error("เลขประจำตัวใหม่นี้ซ้ำกับผู้อื่นในระบบ")
