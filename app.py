@@ -2,26 +2,85 @@ import streamlit as st
 import qrcode
 from PIL import Image
 import io
+import json
+import os
 
 st.set_page_config(page_title="ระบบสารสนเทศพฤกษศาสตร์โรงเรียน", page_icon="🌿", layout="wide")
 
-# --- กำหนดค่าเริ่มต้นใน Session State (ใช้ฐานข้อมูลกลางที่จำค่าได้ตลอดการใช้งานเซสชัน) ---
-if 'plants' not in st.session_state:
-    st.session_state['plants'] = {
+# ==========================================
+# 📂 ฟังก์ชันจัดการบันทึกและโหลดข้อมูลจากไฟล์ JSON (เพื่อให้ข้อมูลไม่หายเมื่อรีเฟรช/ปิดเว็บ)
+# ==========================================
+PLANTS_FILE = "plants_data.json"
+STUDENTS_FILE = "students_data.json"
+
+def load_plants():
+    if os.path.exists(PLANTS_FILE):
+        try:
+            with open(PLANTS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                # แปลงรูปภาพจาก base64 หรือค่าเริ่มต้นกลับมา ถ้าไม่มีให้เป็น None
+                for p in data:
+                    if "image_path" in data[p] and data[p]["image_path"] and os.path.exists(data[p]["image_path"]):
+                        with open(data[p]["image_path"], "rb") as img_f:
+                            data[p]["image"] = img_f.read()
+                    else:
+                        data[p]["image"] = None
+                return data
+        except:
+            pass
+    # ค่าเริ่มต้นถ้ายังไม่มีไฟล์
+    return {
         "ราชพฤกษ์ (คูน)": {
             "scientific_name": "Cassia fistula L.",
             "family": "Fabaceae",
             "benefit": "ไม้ดอกประดับ สมุนไพรพื้นบ้าน",
-            "image": None
+            "image": None,
+            "image_path": None
         }
     }
 
-if 'students' not in st.session_state:
-    # ฐานข้อมูลเริ่มต้น (รวมแอดมินและนักเรียนตัวอย่าง)
-    st.session_state['students'] = {
+def save_plants():
+    # บันทึกข้อมูลพืช (แยกเก็บรูปภาพเป็นไฟล์ย่อยเพื่อความเสถียร)
+    serializable_data = {}
+    for p_name, p_data in st.session_state['plants'].items():
+        img_path = p_data.get("image_path")
+        if p_data["image"] is not None:
+            img_path = f"img_{p_name.replace(' ', '_').replace('/', '_')}.png"
+            with open(img_path, "wb") as img_f:
+                img_f.write(p_data["image"])
+        
+        serializable_data[p_name] = {
+            "scientific_name": p_data["scientific_name"],
+            "family": p_data["family"],
+            "benefit": p_data["benefit"],
+            "image_path": img_path
+        }
+    with open(PLANTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(serializable_data, f, ensure_ascii=False, indent=4)
+
+def load_students():
+    if os.path.exists(STUDENTS_FILE):
+        try:
+            with open(STUDENTS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    # ค่าเริ่มต้นถ้ายังไม่มีไฟล์
+    return {
         "admin01": {"name": "ผู้ดูแลระบบหลัก", "class": "คณะครู", "role": "Admin"},
         "65001": {"name": "เด็กชายสมชาย เรียนดี", "class": "ม.3/1", "role": "User"}
     }
+
+def save_students():
+    with open(STUDENTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(st.session_state['students'], f, ensure_ascii=False, indent=4)
+
+# --- โหลดข้อมูลเข้าสู่ Session State ---
+if 'plants' not in st.session_state:
+    st.session_state['plants'] = load_plants()
+
+if 'students' not in st.session_state:
+    st.session_state['students'] = load_students()
 
 if 'logged_in_user' not in st.session_state:
     st.session_state['logged_in_user'] = None
@@ -37,7 +96,6 @@ if st.session_state['logged_in_user'] is None:
         st.markdown("<h2 style='text-align: center; color: #2E7D32;'>🌿 เข้าสู่ระบบพฤกษศาสตร์โรงเรียน</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #555;'>กรุณากรอกเลขประจำตัวเพื่อเข้าใช้งาน</p>", unsafe_allow_html=True)
         
-        # ใช้ Form สำหรับหน้า Login
         with st.form("login_form"):
             input_id = st.text_input("เลขประจำตัว (นักเรียน / แอดมิน)").strip()
             submit_login = st.form_submit_button("เข้าสู่ระบบ", use_container_width=True)
@@ -52,7 +110,6 @@ if st.session_state['logged_in_user'] is None:
                 else:
                     st.error(f"ไม่พบเลขประจำตัว '{input_id}' นี้ในระบบ กรุณาให้แอดมินเพิ่มข้อมูลก่อนครับ")
     
-    # หยุดการทำงานหน้าอื่นไว้จนกว่าจะ Login สำเร็จ
     st.stop()
 
 # ==========================================
@@ -70,7 +127,6 @@ if st.sidebar.button("🚪 ออกจากระบบ", use_container_width=
 
 st.sidebar.markdown("---")
 
-# กำหนดเมนูตามสิทธิ์ (Admin หรือ User ทั่วไป)
 menu_options = ["🏠 หน้าหลัก (ค้นหา & QR Code)"]
 if user_info['role'] == "Admin":
     menu_options.append("🛠️ จัดการข้อมูลพืช (เพิ่ม/แก้ไข/ลบ)")
@@ -154,9 +210,12 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                             "scientific_name": new_sci,
                             "family": new_family,
                             "benefit": new_benefit,
-                            "image": img_bytes
+                            "image": img_bytes,
+                            "image_path": None
                         }
+                        save_plants()
                         st.success(f"เพิ่มข้อมูลพืช '{new_name}' และสร้าง QR Code เรียบร้อยแล้ว!")
+                        st.rerun()
                 else:
                     st.error("กรุณากรอกชื่อพืชและชื่อวิทยาศาสตร์ให้ครบถ้วน")
 
@@ -200,6 +259,7 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                         if edit_file is not None:
                             target_data['image'] = edit_file.read()
                             
+                        save_plants()
                         st.success(f"แก้ไขข้อมูลพืช '{edit_name}' สำเร็จ!")
                         st.rerun()
                     else:
@@ -213,6 +273,7 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
             plant_to_delete = st.selectbox("เลือกพืชที่ต้องการลบ", list(st.session_state['plants'].keys()), key="del_plant_select")
             if st.button("ยืนยันการลบพืช"):
                 del st.session_state['plants'][plant_to_delete]
+                save_plants()
                 st.success(f"ลบข้อมูลพืช '{plant_to_delete}' เรียบร้อยแล้ว!")
                 st.rerun()
         else:
@@ -246,7 +307,9 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
                             "class": new_class,
                             "role": new_role
                         }
-                        st.success(f"เพิ่มนักเรียน '{new_name}' (เลขประจำตัว: {new_id}) สำเร็จเรียบร้อย! สามารถนำไปใช้ล็อกอินได้ทันที")
+                        save_students()
+                        st.success(f"เพิ่มนักเรียน '{new_name}' (เลขประจำตัว: {new_id}) สำเร็จเรียบร้อย!")
+                        st.rerun()
                 else:
                     st.error("กรุณากรอกข้อมูลให้ครบทุกช่อง")
 
@@ -266,7 +329,6 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
                 
                 if submit_edit_stu:
                     if edit_id and edit_name and edit_class:
-                        # ถ้ามีการเปลี่ยนเลขประจำตัว
                         if edit_id != selected_student_id:
                             if edit_id in st.session_state['students']:
                                 st.error("เลขประจำตัวใหม่นี้ซ้ำกับผู้อื่นในระบบ")
@@ -274,12 +336,12 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
                             else:
                                 st.session_state['students'][edit_id] = st.session_state['students'].pop(selected_student_id)
                         
-                        # อัปเดตข้อมูล
                         target_stu = st.session_state['students'][edit_id]
                         target_stu['name'] = edit_name
                         target_stu['class'] = edit_class
                         target_stu['role'] = edit_role
                         
+                        save_students()
                         st.success(f"แก้ไขข้อมูลนักเรียนเรียบร้อยแล้ว!")
                         st.rerun()
                     else:
@@ -298,7 +360,8 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
                     st.error("คุณไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้!")
                 else:
                     del st.session_state['students'][stu_to_delete]
-                    st.success("ลบข้อมูลนักเรียนเรียบร้อยแล้ว!")
+                    save_students()
+                    st.success(f"ลบข้อมูลนักเรียนเรียบร้อยแล้ว!")
                     st.rerun()
         else:
             st.info("ไม่มีข้อมูลนักเรียนให้ลบ")
