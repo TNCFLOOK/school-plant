@@ -17,10 +17,10 @@ def load_plants():
             with open(PLANTS_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 for plant_name, plant_info in data.items():
-                    # ตรวจสอบและแปลง base64 กลับเป็น bytes
                     if plant_info.get("image_base64"):
                         try:
-                            plant_info["image"] = base64.b64decode(plant_info["image_base64"])
+                            decoded = base64.b64decode(plant_info["image_base64"])
+                            plant_info["image"] = decoded if len(decoded) > 10 else None
                         except Exception:
                             plant_info["image"] = None
                     else:
@@ -42,12 +42,11 @@ def save_plants():
     for p_name, p_data in st.session_state['plants'].items():
         img_b64 = None
         img_data = p_data.get("image")
-        if img_data is not None:
-            if isinstance(img_data, bytes):
-                try:
-                    img_b64 = base64.b64encode(img_data).decode('utf-8')
-                except Exception:
-                    pass
+        if img_data is not None and isinstance(img_data, bytes) and len(img_data) > 10:
+            try:
+                img_b64 = base64.b64encode(img_data).decode('utf-8')
+            except Exception:
+                pass
         
         serializable_data[p_name] = {
             "scientific_name": p_data.get("scientific_name", ""),
@@ -166,7 +165,7 @@ if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
             st.write(f"**ประโยชน์/สรรพคุณ:** {data.get('benefit', '-')}")
             
             img_data = data.get('image')
-            if img_data is not None and isinstance(img_data, bytes) and len(img_data) > 0:
+            if img_data is not None and isinstance(img_data, bytes) and len(img_data) > 10:
                 try:
                     st.image(img_data, caption=f"ภาพถ่าย {plant_name}", use_column_width=True)
                 except Exception:
@@ -221,7 +220,7 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                     st.error("กรุณากรอกชื่อพืชและชื่อวิทยาศาสตร์")
 
     with tab2:
-        st.subheader("แก้ไขรายละเอียดและอัปโหลดรูปภาพพืช")
+        st.subheader("แก้ไขรายละเอียดและจัดการรูปภาพพืช")
         if st.session_state['plants']:
             selected_plant = st.selectbox("เลือกพืชที่ต้องการแก้ไข", list(st.session_state['plants'].keys()), key="edit_plant_select")
             current_data = st.session_state['plants'][selected_plant]
@@ -234,15 +233,19 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                 
                 st.write("---")
                 curr_img = current_data.get('image')
-                if curr_img is not None and isinstance(curr_img, bytes) and len(curr_img) > 0:
+                has_valid_img = (curr_img is not None and isinstance(curr_img, bytes) and len(curr_img) > 10)
+                
+                if has_valid_img:
                     try:
                         st.image(curr_img, width=150, caption="รูปภาพปัจจุบันในระบบ")
                     except Exception:
-                        st.info("มีข้อมูลรูปภาพแต่แสดงผลไม่สำเร็จ")
+                        pass
+                    delete_image_checkbox = st.checkbox("🗑️ ติ๊กเพื่อลบรูปภาพนี้ออก")
                 else:
                     st.info("พืชนี้ยังไม่มีรูปภาพในระบบ")
+                    delete_image_checkbox = False
 
-                edit_file = st.file_uploader("อัปโหลดรูปภาพใหม่ (หากต้องการเปลี่ยนหรือใส่รูปเพิ่ม)", type=["png", "jpg", "jpeg"], key="edit_img")
+                edit_file = st.file_uploader("อัปโหลดรูปภาพใหม่ (หากต้องการเปลี่ยน)", type=["png", "jpg", "jpeg"], key="edit_img")
                 
                 submit_edit = st.form_submit_button("บันทึกการแก้ไข")
                 
@@ -260,8 +263,10 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                         target_data['family'] = edit_family
                         target_data['benefit'] = edit_benefit
                         
-                        # จัดการรูปภาพ: ถลมอัปโหลดใหม่ใช้ไฟล์ใหม่ ถ้างั้นคงรูปเดิมไว้
-                        if edit_file is not None:
+                        # จัดการสถานะรูปภาพ (ลบรูป / เปลี่ยนรูปใหม่ / คงรูปเดิม)
+                        if delete_image_checkbox:
+                            target_data['image'] = None
+                        elif edit_file is not None:
                             target_data['image'] = edit_file.read()
                         
                         save_plants()
