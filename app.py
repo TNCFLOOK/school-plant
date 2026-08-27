@@ -8,7 +8,7 @@ import os
 st.set_page_config(page_title="ระบบสารสนเทศพฤกษศาสตร์โรงเรียน", page_icon="🌿", layout="wide")
 
 # ==========================================
-# 📂 ฟังก์ชันจัดการบันทึกและโหลดข้อมูลจากไฟล์ JSON (เพื่อให้ข้อมูลไม่หายเมื่อรีเฟรช/ปิดเว็บ)
+# 📂 ฟังก์ชันจัดการบันทึกและโหลดข้อมูลจากไฟล์ JSON
 # ==========================================
 PLANTS_FILE = "plants_data.json"
 STUDENTS_FILE = "students_data.json"
@@ -18,36 +18,34 @@ def load_plants():
         try:
             with open(PLANTS_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                # แปลงรูปภาพจาก base64 หรือค่าเริ่มต้นกลับมา ถ้าไม่มีให้เป็น None
                 for p in data:
-                    if "image_path" in data[p] and data[p]["image_path"] and os.path.exists(data[p]["image_path"]):
-                        with open(data[p]["image_path"], "rb") as img_f:
+                    img_path = data[p].get("image_path")
+                    if img_path and os.path.exists(img_path):
+                        with open(img_path, "rb") as img_f:
                             data[p]["image"] = img_f.read()
                     else:
                         data[p]["image"] = None
                 return data
         except:
             pass
-    # ค่าเริ่มต้นถ้ายังไม่มีไฟล์
     return {
         "ราชพฤกษ์ (คูน)": {
             "scientific_name": "Cassia fistula L.",
             "family": "Fabaceae",
             "benefit": "ไม้ดอกประดับ สมุนไพรพื้นบ้าน",
-            "image": None,
             "image_path": None
         }
     }
 
 def save_plants():
-    # บันทึกข้อมูลพืช (แยกเก็บรูปภาพเป็นไฟล์ย่อยเพื่อความเสถียร)
     serializable_data = {}
     for p_name, p_data in st.session_state['plants'].items():
         img_path = p_data.get("image_path")
-        if p_data["image"] is not None:
+        # ถ้ามีข้อมูลรูปใหม่ถูกอัปโหลดเข้ามา
+        if p_data.get("new_image_bytes") is not None:
             img_path = f"img_{p_name.replace(' ', '_').replace('/', '_')}.png"
             with open(img_path, "wb") as img_f:
-                img_f.write(p_data["image"])
+                img_f.write(p_data["new_image_bytes"])
         
         serializable_data[p_name] = {
             "scientific_name": p_data["scientific_name"],
@@ -65,7 +63,6 @@ def load_students():
                 return json.load(f)
         except:
             pass
-    # ค่าเริ่มต้นถ้ายังไม่มีไฟล์
     return {
         "admin01": {"name": "ผู้ดูแลระบบหลัก", "class": "คณะครู", "role": "Admin"},
         "65001": {"name": "เด็กชายสมชาย เรียนดี", "class": "ม.3/1", "role": "User"}
@@ -77,7 +74,21 @@ def save_students():
 
 # --- โหลดข้อมูลเข้าสู่ Session State ---
 if 'plants' not in st.session_state:
-    st.session_state['plants'] = load_plants()
+    raw_plants = load_plants()
+    st.session_state['plants'] = {}
+    for p_name, p_data in raw_plants.items():
+        img_bytes = None
+        img_path = p_data.get("image_path")
+        if img_path and os.path.exists(img_path):
+            with open(img_path, "rb") as f:
+                img_bytes = f.read()
+        st.session_state['plants'][p_name] = {
+            "scientific_name": p_data["scientific_name"],
+            "family": p_data["family"],
+            "benefit": p_data["benefit"],
+            "image": img_bytes,
+            "image_path": img_path
+        }
 
 if 'students' not in st.session_state:
     st.session_state['students'] = load_students()
@@ -170,16 +181,23 @@ if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
             st.write(f"**วงศ์:** {data['family']}")
             st.write(f"**ประโยชน์/สรรพคุณ:** {data['benefit']}")
             
-            if data['image'] is not None:
-                st.image(data['image'], caption=f"ภาพถ่าย {plant_name}", use_column_width=True)
+            # ป้องกัน Error กรณีรูปภาพเป็น None หรือไม่พบไฟล์
+            if data.get('image') is not None:
+                try:
+                    st.image(data['image'], caption=f"ภาพถ่าย {plant_name}", use_column_width=True)
+                except:
+                    st.info("ไม่สามารถแสดงรูปภาพได้")
             else:
                 st.info("ยังไม่มีรูปภาพประกอบสำหรับพืชชนิดนี้")
 
         with col2:
             st.subheader("📱 QR Code อัตโนมัติประจำต้นไม้")
-            qr_bytes = generate_qr_code(plant_name, data)
-            st.image(qr_bytes, width=250)
-            st.success("QR Code ถูกสร้างอัตโนมัติจากข้อมูลล่าสุด สามารถสแกนเพื่อดูข้อมูลพืชได้ทันที!")
+            try:
+                qr_bytes = generate_qr_code(plant_name, data)
+                st.image(qr_bytes, width=250)
+                st.success("QR Code ถูกสร้างอัตโนมัติจากข้อมูลล่าสุด สามารถสแกนเพื่อดูข้อมูลพืชได้ทันที!")
+            except Exception as e:
+                st.error("ไม่สามารถสร้าง QR Code ได้ในขณะนี้")
 
 # ==========================================
 # 2. จัดการข้อมูลพืช (Admin Only)
@@ -206,12 +224,17 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                         st.error("มีชื่อพืชนี้อยู่ในระบบแล้ว กรุณาใช้เมนูแก้ไขข้อมูล")
                     else:
                         img_bytes = uploaded_file.read() if uploaded_file is not None else None
+                        img_path = f"img_{new_name.replace(' ', '_').replace('/', '_')}.png" if img_bytes else None
+                        if img_bytes:
+                            with open(img_path, "wb") as img_f:
+                                img_f.write(img_bytes)
+
                         st.session_state['plants'][new_name] = {
                             "scientific_name": new_sci,
                             "family": new_family,
                             "benefit": new_benefit,
                             "image": img_bytes,
-                            "image_path": None
+                            "image_path": img_path
                         }
                         save_plants()
                         st.success(f"เพิ่มข้อมูลพืช '{new_name}' และสร้าง QR Code เรียบร้อยแล้ว!")
@@ -233,8 +256,11 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                 
                 st.write("---")
                 st.write("รูปภาพปัจจุบัน:")
-                if current_data['image'] is not None:
-                    st.image(current_data['image'], width=150)
+                if current_data.get('image') is not None:
+                    try:
+                        st.image(current_data['image'], width=150)
+                    except:
+                        st.info("ไม่สามารถแสดงรูปภาพปัจจุบันได้")
                 else:
                     st.info("ยังไม่มีรูปภาพ")
 
@@ -257,7 +283,12 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                         target_data['benefit'] = edit_benefit
                         
                         if edit_file is not None:
-                            target_data['image'] = edit_file.read()
+                            img_bytes = edit_file.read()
+                            img_path = f"img_{edit_name.replace(' ', '_').replace('/', '_')}.png"
+                            with open(img_path, "wb") as img_f:
+                                img_f.write(img_bytes)
+                            target_data['image'] = img_bytes
+                            target_data['image_path'] = img_path
                             
                         save_plants()
                         st.success(f"แก้ไขข้อมูลพืช '{edit_name}' สำเร็จ!")
