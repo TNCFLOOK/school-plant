@@ -4,11 +4,12 @@ from PIL import Image
 import io
 import json
 import os
+import base64
 
 st.set_page_config(page_title="ระบบสารสนเทศพฤกษศาสตร์โรงเรียน", page_icon="🌿", layout="wide")
 
 # ==========================================
-# 📂 ฟังก์ชันจัดการบันทึกและโหลดข้อมูลจากไฟล์ JSON
+# 📂 ฟังก์ชันจัดการบันทึกและโหลดข้อมูลด้วย Base64 (ป้องกันรูปหายบน Cloud)
 # ==========================================
 PLANTS_FILE = "plants_data.json"
 STUDENTS_FILE = "students_data.json"
@@ -18,50 +19,52 @@ def load_plants():
         try:
             with open(PLANTS_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                for p in data:
-                    img_path = data[p].get("image_path")
-                    if img_path and os.path.exists(img_path):
-                        with open(img_path, "rb") as img_f:
-                            data[p]["image"] = img_f.read()
+                for plant_name, plant_info in data.items():
+                    # แปลง string base64 กลับเป็น bytes ของรูปภาพ
+                    if plant_info.get("image_base64"):
+                        try:
+                            plant_info["image"] = base64.b64decode(plant_info["image_base64"])
+                        except Exception:
+                            plant_info["image"] = None
                     else:
-                        data[p]["image"] = None
+                        plant_info["image"] = None
                 return data
-        except:
+        except Exception:
             pass
     return {
-        "ราชพฤกษ์ (คูน)": {
-            "scientific_name": "Cassia fistula L.",
-            "family": "Fabaceae",
-            "benefit": "ไม้ดอกประดับ สมุนไพรพื้นบ้าน",
-            "image_path": None
+        "ตำแยแมว": {
+            "scientific_name": "Acalypha indica L.",
+            "family": "Euphorbiaceae",
+            "benefit": "รากหรือใบต้มน้ำดื่มขับเสมหะ ช่วยให้แมวผ่อนคลาย",
+            "image": None
         }
     }
 
 def save_plants():
     serializable_data = {}
     for p_name, p_data in st.session_state['plants'].items():
-        img_path = p_data.get("image_path")
-        # ถ้ามีข้อมูลรูปใหม่ถูกอัปโหลดเข้ามา
-        if p_data.get("new_image_bytes") is not None:
-            img_path = f"img_{p_name.replace(' ', '_').replace('/', '_')}.png"
-            with open(img_path, "wb") as img_f:
-                img_f.write(p_data["new_image_bytes"])
+        img_b64 = None
+        if p_data.get("image") is not None and isinstance(p_data["image"], bytes):
+            img_b64 = base64.b64encode(p_data["image"]).decode('utf-8')
         
         serializable_data[p_name] = {
-            "scientific_name": p_data["scientific_name"],
-            "family": p_data["family"],
-            "benefit": p_data["benefit"],
-            "image_path": img_path
+            "scientific_name": p_data.get("scientific_name", ""),
+            "family": p_data.get("family", ""),
+            "benefit": p_data.get("benefit", ""),
+            "image_base64": img_b64
         }
-    with open(PLANTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(serializable_data, f, ensure_ascii=False, indent=4)
+    try:
+        with open(PLANTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(serializable_data, f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
 
 def load_students():
     if os.path.exists(STUDENTS_FILE):
         try:
             with open(STUDENTS_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except:
+        except Exception:
             pass
     return {
         "admin01": {"name": "ผู้ดูแลระบบหลัก", "class": "คณะครู", "role": "Admin"},
@@ -69,26 +72,15 @@ def load_students():
     }
 
 def save_students():
-    with open(STUDENTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(st.session_state['students'], f, ensure_ascii=False, indent=4)
+    try:
+        with open(STUDENTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(st.session_state['students'], f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
 
 # --- โหลดข้อมูลเข้าสู่ Session State ---
 if 'plants' not in st.session_state:
-    raw_plants = load_plants()
-    st.session_state['plants'] = {}
-    for p_name, p_data in raw_plants.items():
-        img_bytes = None
-        img_path = p_data.get("image_path")
-        if img_path and os.path.exists(img_path):
-            with open(img_path, "rb") as f:
-                img_bytes = f.read()
-        st.session_state['plants'][p_name] = {
-            "scientific_name": p_data["scientific_name"],
-            "family": p_data["family"],
-            "benefit": p_data["benefit"],
-            "image": img_bytes,
-            "image_path": img_path
-        }
+    st.session_state['plants'] = load_plants()
 
 if 'students' not in st.session_state:
     st.session_state['students'] = load_students()
@@ -119,15 +111,14 @@ if st.session_state['logged_in_user'] is None:
                     st.success("เข้าสู่ระบบสำเร็จ!")
                     st.rerun()
                 else:
-                    st.error(f"ไม่พบเลขประจำตัว '{input_id}' นี้ในระบบ กรุณาให้แอดมินเพิ่มข้อมูลก่อนครับ")
-    
+                    st.error(f"ไม่พบเลขประจำตัว '{input_id}' ในระบบ กรุณาติดต่อแอดมินเพื่อลงทะเบียน")
     st.stop()
 
 # ==========================================
 # 🖥️ เมื่อเข้าสู่ระบบแล้ว (Sidebar และเมนูหลัก)
 # ==========================================
 current_user_id = st.session_state['logged_in_user']
-user_info = st.session_state['students'][current_user_id]
+user_info = st.session_state['students'].get(current_user_id, {"name": "ผู้ใช้งาน", "class": "-", "role": "User"})
 
 st.sidebar.title("👤 ข้อมูลผู้ใช้งาน")
 st.sidebar.info(f"**ชื่อ:** {user_info['name']}\n\n**เลขประจำตัว:** `{current_user_id}`\n\n**ชั้นเรียน:** {user_info['class']}\n\n**สถานะ:** {user_info['role']}")
@@ -139,7 +130,7 @@ if st.sidebar.button("🚪 ออกจากระบบ", use_container_width=
 st.sidebar.markdown("---")
 
 menu_options = ["🏠 หน้าหลัก (ค้นหา & QR Code)"]
-if user_info['role'] == "Admin":
+if user_info.get('role') == "Admin":
     menu_options.append("🛠️ จัดการข้อมูลพืช (เพิ่ม/แก้ไข/ลบ)")
     menu_options.append("👥 จัดการข้อมูลนักเรียน/ผู้ใช้")
 
@@ -149,7 +140,7 @@ menu = st.sidebar.selectbox("📂 เมนูการใช้งาน", menu
 # ฟังก์ชันช่วยสร้าง QR Code
 # ==========================================
 def generate_qr_code(plant_name, data):
-    qr_data = f"พืช: {plant_name} | ชื่อวิทย์: {data['scientific_name']} | วงศ์: {data['family']} | สรรพคุณ: {data['benefit']}"
+    qr_data = f"พืช: {plant_name} | ชื่อวิทย์: {data.get('scientific_name', '')} | วงศ์: {data.get('family', '')} | สรรพคุณ: {data.get('benefit', '')}"
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
     qr.add_data(qr_data)
     qr.make(fit=True)
@@ -167,7 +158,7 @@ if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
     st.markdown("<p style='text-align: center; color: #555;'>โรงเรียนฐานปัญญา</p>", unsafe_allow_html=True)
     st.write("---")
 
-    if len(st.session_state['plants']) == 0:
+    if not st.session_state['plants']:
         st.warning("ยังไม่มีข้อมูลพืชในระบบ กรุณาให้แอดมินเพิ่มข้อมูลพืช")
     else:
         plant_name = st.selectbox("🔍 เลือกหรือค้นหาชื่อพืช", list(st.session_state['plants'].keys()))
@@ -177,16 +168,17 @@ if menu == "🏠 หน้าหลัก (ค้นหา & QR Code)":
 
         with col1:
             st.subheader(f"🌱 ชื่อพืช: {plant_name}")
-            st.write(f"**ชื่อวิทยาศาสตร์:** *{data['scientific_name']}*")
-            st.write(f"**วงศ์:** {data['family']}")
-            st.write(f"**ประโยชน์/สรรพคุณ:** {data['benefit']}")
+            st.write(f"**ชื่อวิทยาศาสตร์:** *{data.get('scientific_name', '-') }*")
+            st.write(f"**วงศ์:** {data.get('family', '-')}")
+            st.write(f"**ประโยชน์/สรรพคุณ:** {data.get('benefit', '-')}")
             
-            # ป้องกัน Error กรณีรูปภาพเป็น None หรือไม่พบไฟล์
-            if data.get('image') is not None:
+            # ตรวจสอบรูปภาพอย่างปลอดภัยเพื่อป้องกัน TypeError
+            img_data = data.get('image')
+            if img_data is not None and isinstance(img_data, bytes) and len(img_data) > 0:
                 try:
-                    st.image(data['image'], caption=f"ภาพถ่าย {plant_name}", use_column_width=True)
-                except:
-                    st.info("ไม่สามารถแสดงรูปภาพได้")
+                    st.image(img_data, caption=f"ภาพถ่าย {plant_name}", use_column_width=True)
+                except Exception:
+                    st.info("ไม่สามารถแสดงรูปภาพได้ (รูปแบบไฟล์ไม่ถูกต้อง)")
             else:
                 st.info("ยังไม่มีรูปภาพประกอบสำหรับพืชชนิดนี้")
 
@@ -224,42 +216,36 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                         st.error("มีชื่อพืชนี้อยู่ในระบบแล้ว กรุณาใช้เมนูแก้ไขข้อมูล")
                     else:
                         img_bytes = uploaded_file.read() if uploaded_file is not None else None
-                        img_path = f"img_{new_name.replace(' ', '_').replace('/', '_')}.png" if img_bytes else None
-                        if img_bytes:
-                            with open(img_path, "wb") as img_f:
-                                img_f.write(img_bytes)
-
                         st.session_state['plants'][new_name] = {
                             "scientific_name": new_sci,
                             "family": new_family,
                             "benefit": new_benefit,
-                            "image": img_bytes,
-                            "image_path": img_path
+                            "image": img_bytes
                         }
                         save_plants()
-                        st.success(f"เพิ่มข้อมูลพืช '{new_name}' และสร้าง QR Code เรียบร้อยแล้ว!")
+                        st.success(f"เพิ่มข้อมูลพืช '{new_name}' เรียบร้อยแล้ว!")
                         st.rerun()
                 else:
                     st.error("กรุณากรอกชื่อพืชและชื่อวิทยาศาสตร์ให้ครบถ้วน")
 
     with tab2:
         st.subheader("แก้ไขรายละเอียดและสรรพคุณพืช")
-        if len(st.session_state['plants']) > 0:
+        if st.session_state['plants']:
             selected_plant = st.selectbox("เลือกพืชที่ต้องการแก้ไข", list(st.session_state['plants'].keys()), key="edit_plant_select")
             current_data = st.session_state['plants'][selected_plant]
 
             with st.form("edit_plant_form"):
                 edit_name = st.text_input("ชื่อพืช (เปลี่ยนชื่อได้)", value=selected_plant)
-                edit_sci = st.text_input("ชื่อวิทยาศาสตร์", value=current_data['scientific_name'])
-                edit_family = st.text_input("วงศ์ (Family)", value=current_data['family'])
-                edit_benefit = st.text_area("ประโยชน์ / สรรพคุณ", value=current_data['benefit'])
+                edit_sci = st.text_input("ชื่อวิทยาศาสตร์", value=current_data.get('scientific_name', ''))
+                edit_family = st.text_input("วงศ์ (Family)", value=current_data.get('family', ''))
+                edit_benefit = st.text_area("ประโยชน์ / สรรพคุณ", value=current_data.get('benefit', ''))
                 
                 st.write("---")
                 st.write("รูปภาพปัจจุบัน:")
-                if current_data.get('image') is not None:
+                if current_data.get('image') is not None and isinstance(current_data['image'], bytes):
                     try:
                         st.image(current_data['image'], width=150)
-                    except:
+                    except Exception:
                         st.info("ไม่สามารถแสดงรูปภาพปัจจุบันได้")
                 else:
                     st.info("ยังไม่มีรูปภาพ")
@@ -283,12 +269,7 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
                         target_data['benefit'] = edit_benefit
                         
                         if edit_file is not None:
-                            img_bytes = edit_file.read()
-                            img_path = f"img_{edit_name.replace(' ', '_').replace('/', '_')}.png"
-                            with open(img_path, "wb") as img_f:
-                                img_f.write(img_bytes)
-                            target_data['image'] = img_bytes
-                            target_data['image_path'] = img_path
+                            target_data['image'] = edit_file.read()
                             
                         save_plants()
                         st.success(f"แก้ไขข้อมูลพืช '{edit_name}' สำเร็จ!")
@@ -300,7 +281,7 @@ elif menu == "🛠️ จัดการข้อมูลพืช (เพิ�
 
     with tab3:
         st.subheader("ลบข้อมูลพืชที่มีในระบบ")
-        if len(st.session_state['plants']) > 0:
+        if st.session_state['plants']:
             plant_to_delete = st.selectbox("เลือกพืชที่ต้องการลบ", list(st.session_state['plants'].keys()), key="del_plant_select")
             if st.button("ยืนยันการลบพืช"):
                 del st.session_state['plants'][plant_to_delete]
@@ -346,15 +327,15 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
 
     with tab2:
         st.subheader("แก้ไขชื่อ ชั้นเรียน หรือเปลี่ยนเลขประจำตัวนักเรียน")
-        if len(st.session_state['students']) > 0:
+        if st.session_state['students']:
             selected_student_id = st.selectbox("เลือกนักเรียนที่ต้องการแก้ไข (จากเลขประจำตัว)", list(st.session_state['students'].keys()), key="edit_stu_select")
             current_stu_data = st.session_state['students'][selected_student_id]
 
             with st.form("edit_student_form"):
                 edit_id = st.text_input("เลขประจำตัว (แก้ไขได้)", value=selected_student_id).strip()
-                edit_name = st.text_input("ชื่อ-นามสกุล", value=current_stu_data['name']).strip()
-                edit_class = st.text_input("ชั้นเรียน", value=current_stu_data['class']).strip()
-                edit_role = st.selectbox("บทบาทในระบบ", ["User", "Admin"], index=0 if current_stu_data['role']=="User" else 1)
+                edit_name = st.text_input("ชื่อ-นามสกุล", value=current_stu_data.get('name', '')).strip()
+                edit_class = st.text_input("ชั้นเรียน", value=current_stu_data.get('class', '')).strip()
+                edit_role = st.selectbox("บทบาทในระบบ", ["User", "Admin"], index=0 if current_stu_data.get('role')=="User" else 1)
                 
                 submit_edit_stu = st.form_submit_button("บันทึกการแก้ไขข้อมูลนักเรียน")
                 
@@ -373,7 +354,7 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
                         target_stu['role'] = edit_role
                         
                         save_students()
-                        st.success(f"แก้ไขข้อมูลนักเรียนเรียบร้อยแล้ว!")
+                        st.success("แก้ไขข้อมูลนักเรียนเรียบร้อยแล้ว!")
                         st.rerun()
                     else:
                         st.error("กรุณากรอกข้อมูลให้ครบถ้วน")
@@ -382,9 +363,9 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
 
     with tab3:
         st.subheader("ลบข้อมูลนักเรียนออกจากระบบ")
-        if len(st.session_state['students']) > 0:
+        if st.session_state['students']:
             stu_to_delete = st.selectbox("เลือกนักเรียนที่ต้องการลบ", list(st.session_state['students'].keys()), key="del_stu_select")
-            st.warning(f"กำลังจะลบ: {st.session_state['students'][stu_to_delete]['name']} ({stu_to_delete})")
+            st.warning(f"กำลังจะลบ: {st.session_state['students'][stu_to_delete].get('name')} ({stu_to_delete})")
             
             if st.button("ยืนยันการลบนักเรียน"):
                 if stu_to_delete == current_user_id:
@@ -392,7 +373,7 @@ elif menu == "👥 จัดการข้อมูลนักเรียน/
                 else:
                     del st.session_state['students'][stu_to_delete]
                     save_students()
-                    st.success(f"ลบข้อมูลนักเรียนเรียบร้อยแล้ว!")
+                    st.success("ลบข้อมูลนักเรียนเรียบร้อยแล้ว!")
                     st.rerun()
         else:
             st.info("ไม่มีข้อมูลนักเรียนให้ลบ")
