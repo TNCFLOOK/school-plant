@@ -2,94 +2,75 @@ import streamlit as st
 import qrcode
 from PIL import Image
 import io
-import json
-import os
-import base64
 
-st.set_page_config(page_title="ระบบสารสนเทศพฤกษศาสตร์โรงเรียน", page_icon="🌿", layout="wide")
+st.set_page_config(page_title="ระบบพฤกษศาสตร์โรงเรียนฐานปัญญา", page_icon="🌿", layout="wide")
 
-PLANTS_FILE = "plants_data.json"
-STUDENTS_FILE = "students_data.json"
+st.markdown("<h1 style='text-align: center; color: #2e7d32;'>🌿 ระบบพฤกษศาสตร์โรงเรียนฐานปัญญา</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray;'>พัฒนาโปรแกรมโดย Tnc</p>", unsafe_allow_html=True)
+st.write("---")
 
-def load_plants():
-    if os.path.exists(PLANTS_FILE):
-        try:
-            with open(PLANTS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                for plant_name, plant_info in data.items():
-                    if plant_info.get("image_base64"):
-                        try:
-                            plant_info["image"] = base64.b64decode(plant_info["image_base64"])
-                        except Exception:
-                            plant_info["image"] = None
-                    else:
-                        plant_info["image"] = None
-                return data
-        except Exception:
-            pass
-    return {
-        "ตำแยแมว": {
-            "scientific_name": "Acalypha indica L.",
-            "family": "Euphorbiaceae",
-            "benefit": "รากหรือใบต้มน้ำดื่มขับเสมหะ ช่วยให้แมวผ่อนคลาย",
+if 'plants' not in st.session_state:
+    st.session_state['plants'] = {
+        "ต้นราชพฤกษ์": {
+            "scientific_name": "Cassia fistula",
+            "benefit": "ช่วยขับพยาธิและเป็นยาระบายอ่อนๆ",
             "image": None
         }
     }
 
-def save_plants():
-    serializable_data = {}
-    for p_name, p_data in st.session_state['plants'].items():
-        img_b64 = None
-        img_data = p_data.get("image")
-        if img_data is not None:
-            if isinstance(img_data, bytes):
-                try:
-                    img_b64 = base64.b64encode(img_data).decode('utf-8')
-                except Exception:
-                    pass
-        
-        serializable_data[p_name] = {
-            "scientific_name": p_data.get("scientific_name", ""),
-            "family": p_data.get("family", ""),
-            "benefit": p_data.get("benefit", ""),
-            "image_base64": img_b64
-        }
-    try:
-        with open(PLANTS_FILE, "w", encoding="utf-8") as f:
-            json.dump(serializable_data, f, ensure_ascii=False, indent=4)
-    except Exception:
-        pass
-
-def load_students():
-    if os.path.exists(STUDENTS_FILE):
-        try:
-            with open(STUDENTS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {
-        "admin01": {"name": "ผู้ดูแลระบบหลัก", "class": "คณะครู", "role": "Admin"},
-        "65001": {"name": "เด็กชายสมชาย เรียนดี", "class": "ม.3/1", "role": "User"}
+if 'students' not in st.session_state:
+    st.session_state['students'] = {
+        "6501": {"name": "เด็กชายสมชาย ใจดี", "class": "ม.3/1"}
     }
 
-def save_students():
-    try:
-        with open(STUDENTS_FILE, "w", encoding="utf-8") as f:
-            json.dump(st.session_state['students'], f, ensure_ascii=False, indent=4)
-    except Exception:
-        pass
+menu = st.sidebar.selectbox("เลือกหน้า", ["หน้าหลัก (ค้นหา & QR Code)", "ระบบหลังบ้าน (Admin)"])
 
-if 'plants' not in st.session_state:
-    st.session_state['plants'] = load_plants()
+if menu == "หน้าหลัก (ค้นหา & QR Code)":
+    st.title("🌱 ค้นหาข้อมูลพรรณไม้")
+    plant_name = st.selectbox("เลือกพืช:", list(st.session_state['plants'].keys()))
+    
+    if plant_name:
+        data = st.session_state['plants'][plant_name]
+        st.write(f"**ชื่อวิทยาศาสตร์:** {data['scientific_name']}")
+        st.success(f"**สรรพคุณ:** {data['benefit']}")
+        
+        # สร้าง QR Code
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(f"โรงเรียนฐานปัญญา - พืช: {plant_name} | สรรพคุณ: {data['benefit']}")
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        buf = io.BytesIO()
+        img.save(buf)
+        st.image(buf.getvalue(), width=200, caption=f"QR Code ของ {plant_name}")
 
-if 'students' not in st.session_state:
-    st.session_state['students'] = load_students()
+elif menu == "ระบบหลังบ้าน (Admin)":
+    st.title("🔒 ระบบหลังบ้าน")
+    pwd = st.text_input("รหัสผ่านผู้ดูแลระบบ:", type="password")
+    
+    if pwd == "admin1234":
+        st.success("เข้าสู่ระบบสำเร็จ!")
+        tab1, tab2 = st.tabs(["เพิ่มพืช", "เพิ่มนักเรียน"])
+        
+        with tab1:
+            with st.form("p_form"):
+                name = st.text_input("ชื่อพืช")
+                sci = st.text_input("ชื่อวิทยาศาสตร์")
+                ben = st.text_area("สรรพคุณ")
+                if st.form_submit_button("บันทึกพืช") and name:
+                    st.session_state['plants'][name] = {"scientific_name": sci, "benefit": ben, "image": None}
+                    st.success("บันทึกสำเร็จ!")
+                    
+        with tab2:
+            with st.form("s_form"):
+                sid = st.text_input("เลขประจำตัวนักเรียน")
+                sname = st.text_input("ชื่อ-นามสกุล")
+                sclass = st.text_input("ชั้นเรียน")
+                if st.form_submit_button("บันทึกนักเรียน") and sid:
+                    st.session_state['students'][sid] = {"name": sname, "class": sclass}
+                    st.success("บันทึกนักเรียนสำเร็จ!")
+    elif pwd != "":
+        st.error("รหัสผ่านไม่ถูกต้อง (รหัสคือ admin1234)")
 
-if 'logged_in_user' not in st.session_state:
-    st.session_state['logged_in_user'] = None
-
-# ==========================================
-# 🔐 หน้า Login
-# ==========================================
-if st.session_state['logged_in_user'] is None:
-    st.markdown("
+st.write("---")
+st.markdown("<p style='text-align: center; color: gray;'>© 2026 ระบบพฤกษศาสตร์โรงเรียนฐานปัญญา | Developed by Tnc</p>", unsafe_allow_html=True)
