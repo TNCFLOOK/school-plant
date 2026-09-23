@@ -1,6 +1,5 @@
 import streamlit as st
 import qrcode
-from PIL import Image
 import io
 import json
 import os
@@ -11,6 +10,7 @@ from datetime import datetime
 # =========================================================
 # ตั้งค่าหน้าเว็บ
 # =========================================================
+
 st.set_page_config(
     page_title="ระบบพฤกษศาสตร์โรงเรียนฐานปัญญา",
     page_icon="🌿",
@@ -19,9 +19,12 @@ st.set_page_config(
 
 
 # =========================================================
-# ตั้งค่าไฟล์ข้อมูล
+# ตำแหน่งไฟล์แบบถาวร
 # =========================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
 
 DATA_FILE = os.path.join(
     BASE_DIR,
@@ -33,13 +36,52 @@ UPLOAD_DIR = os.path.join(
     "uploaded_images"
 )
 
-# สร้างโฟลเดอร์เก็บรูปถ้ายังไม่มี
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# สร้างโฟลเดอร์รูปภาพ
+os.makedirs(
+    UPLOAD_DIR,
+    exist_ok=True
+)
+
+
+# =========================================================
+# CSS
+# =========================================================
+
+st.markdown(
+    """
+    <style>
+
+    .main-title {
+        color: #198754;
+        font-size: 35px;
+        font-weight: bold;
+    }
+
+    .plant-card {
+        padding: 20px;
+        border-radius: 15px;
+        background-color: #f4fff7;
+        border: 1px solid #ccebd5;
+        margin-bottom: 15px;
+    }
+
+    .login-box {
+        padding: 25px;
+        border-radius: 15px;
+        border: 1px solid #ddd;
+        background-color: #fafafa;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 
 # =========================================================
 # ข้อมูลเริ่มต้น
 # =========================================================
+
 def create_default_data():
 
     return {
@@ -64,59 +106,57 @@ def create_default_data():
 
 
 # =========================================================
-# โหลดข้อมูลจากไฟล์ถาวร
+# โหลดข้อมูล
 # =========================================================
+
 def load_data():
 
-    # ถ้ามีไฟล์เดิม ให้โหลดไฟล์เดิม
-    if os.path.exists(DATA_FILE):
+    if not os.path.exists(DATA_FILE):
 
-        try:
+        data = create_default_data()
 
-            with open(
-                DATA_FILE,
-                "r",
-                encoding="utf-8"
-            ) as file:
+        save_data(data)
 
-                data = json.load(file)
+        return data
 
-            # ป้องกันข้อมูลเก่าไม่มีบางส่วน
-            if "plants" not in data:
-                data["plants"] = {}
+    try:
 
-            if "users" not in data:
-                data["users"] = {}
+        with open(
+            DATA_FILE,
+            "r",
+            encoding="utf-8"
+        ) as file:
 
-            if "logs" not in data:
-                data["logs"] = []
+            data = json.load(file)
 
-            return data
+        if "plants" not in data:
+            data["plants"] = {}
 
-        except Exception as error:
+        if "users" not in data:
+            data["users"] = {}
 
-            st.error(
-                f"ไม่สามารถอ่านไฟล์ข้อมูลได้: {error}"
-            )
+        if "logs" not in data:
+            data["logs"] = []
 
-            return create_default_data()
+        return data
 
-    # ถ้ายังไม่มีไฟล์ ให้สร้างครั้งแรก
-    data = create_default_data()
+    except Exception as error:
 
-    save_data(data)
+        st.error(
+            f"ไม่สามารถโหลดข้อมูลได้: {error}"
+        )
 
-    return data
+        return create_default_data()
 
 
 # =========================================================
 # บันทึกข้อมูลถาวร
 # =========================================================
+
 def save_data(data):
 
     try:
 
-        # เขียนลงไฟล์ชั่วคราวก่อน
         temp_file = DATA_FILE + ".tmp"
 
         with open(
@@ -132,7 +172,6 @@ def save_data(data):
                 indent=4
             )
 
-        # เปลี่ยนไฟล์ชั่วคราวเป็นไฟล์จริง
         os.replace(
             temp_file,
             DATA_FILE
@@ -143,7 +182,7 @@ def save_data(data):
     except Exception as error:
 
         st.error(
-            f"บันทึกข้อมูลไม่สำเร็จ: {error}"
+            f"ไม่สามารถบันทึกข้อมูลได้: {error}"
         )
 
         return False
@@ -152,6 +191,7 @@ def save_data(data):
 # =========================================================
 # Session State
 # =========================================================
+
 if "data" not in st.session_state:
 
     st.session_state.data = load_data()
@@ -170,12 +210,13 @@ if "current_user" not in st.session_state:
 # =========================================================
 # สร้าง QR Code
 # =========================================================
+
 def create_qr_code(
     plant_name,
     plant_data
 ):
 
-    text = (
+    qr_text = (
         "ระบบพฤกษศาสตร์โรงเรียนฐานปัญญา\n"
         f"พรรณไม้: {plant_name}\n"
         f"ชื่อวิทยาศาสตร์: "
@@ -191,8 +232,11 @@ def create_qr_code(
         border=4
     )
 
-    qr.add_data(text)
-    qr.make(fit=True)
+    qr.add_data(qr_text)
+
+    qr.make(
+        fit=True
+    )
 
     image = qr.make_image(
         fill_color="black",
@@ -214,7 +258,8 @@ def create_qr_code(
 # =========================================================
 # บันทึกรูปภาพ
 # =========================================================
-def save_uploaded_image(
+
+def save_image(
     uploaded_file,
     plant_name
 ):
@@ -223,7 +268,6 @@ def save_uploaded_image(
 
         return None
 
-    # ใช้ UUID ป้องกันชื่อไฟล์ซ้ำ
     extension = os.path.splitext(
         uploaded_file.name
     )[1].lower()
@@ -252,14 +296,24 @@ def save_uploaded_image(
 
 
 # =========================================================
-# ลบรูปภาพเก่า
+# ลบรูปภาพ
 # =========================================================
-def delete_image(filepath):
 
-    if filepath and os.path.exists(filepath):
+def delete_image(
+    image_path
+):
+
+    if (
+        image_path
+        and os.path.exists(image_path)
+    ):
 
         try:
-            os.remove(filepath)
+
+            os.remove(
+                image_path
+            )
+
         except Exception:
             pass
 
@@ -267,34 +321,42 @@ def delete_image(filepath):
 # =========================================================
 # HEADER
 # =========================================================
-st.title(
-    "🌿 ระบบพฤกษศาสตร์โรงเรียนฐานปัญญา"
+
+st.markdown(
+    '<div class="main-title">'
+    '🌿 ระบบพฤกษศาสตร์โรงเรียนฐานปัญญา'
+    '</div>',
+    unsafe_allow_html=True
 )
 
 st.caption(
-    "ระบบจัดเก็บข้อมูลพรรณไม้ "
-    "สำหรับนักเรียน ครู และผู้ดูแลระบบ"
+    "ระบบฐานข้อมูลพรรณไม้สำหรับโรงเรียน"
 )
 
 
 # =========================================================
-# กรณียังไม่ได้เข้าสู่ระบบ
+# LOGIN
 # =========================================================
+
 if not st.session_state.logged_in:
 
     st.info(
-        "🔐 กรุณาเข้าสู่ระบบก่อนจึงจะสามารถดูข้อมูลพรรณไม้ได้"
+        "🔐 กรุณาเข้าสู่ระบบก่อนดูข้อมูลพรรณไม้"
     )
 
     st.divider()
 
-    st.header("🔐 เข้าสู่ระบบ")
+    st.subheader(
+        "🔐 เข้าสู่ระบบ"
+    )
 
-    with st.form("login_form"):
+    with st.form(
+        "login_form"
+    ):
 
         user_id = st.text_input(
             "เลขประจำตัว / รหัสสมาชิก",
-            placeholder="เช่น 6501 หรือ admin"
+            placeholder="เช่น admin หรือ 6501"
         )
 
         login_button = st.form_submit_button(
@@ -313,7 +375,9 @@ if not st.session_state.logged_in:
 
             if user_id in users:
 
-                user = users[user_id].copy()
+                user = users[
+                    user_id
+                ].copy()
 
                 user["id"] = user_id
 
@@ -321,62 +385,59 @@ if not st.session_state.logged_in:
 
                 st.session_state.current_user = user
 
-                # -----------------------------------------
-                # บันทึกประวัติ Login
-                # -----------------------------------------
+                # บันทึก Login
                 login_time = datetime.now().strftime(
                     "%Y-%m-%d %H:%M:%S"
                 )
 
-                log = {
-                    "id": user_id,
-                    "name": user.get("name", "-"),
-                    "role": user.get("role", "-"),
-                    "time": login_time
-                }
-
                 st.session_state.data[
                     "logs"
-                ].append(log)
+                ].append(
+                    {
+                        "id": user_id,
+                        "name": user.get(
+                            "name",
+                            "-"
+                        ),
+                        "role": user.get(
+                            "role",
+                            "-"
+                        ),
+                        "time": login_time
+                    }
+                )
 
-                # บันทึกข้อมูลทันที
                 save_data(
                     st.session_state.data
                 )
 
-                st.success(
-                    f"ยินดีต้อนรับ "
-                    f"{user.get('name', '')}"
-                )
-
+                # Login เท่านั้นที่ rerun
                 st.rerun()
 
             else:
 
                 st.error(
-                    "❌ ไม่พบรหัสสมาชิกนี้ "
-                    "กรุณาติดต่อผู้ดูแลระบบ"
+                    "❌ ไม่พบรหัสสมาชิก"
                 )
 
     st.divider()
 
     st.caption(
-        "ระบบพฤกษศาสตร์โรงเรียนฐานปัญญา"
+        "กรุณาติดต่อผู้ดูแลระบบหากไม่สามารถเข้าสู่ระบบได้"
     )
 
-    # -----------------------------------------------------
-    # สำคัญมาก:
-    # หยุดการทำงานตรงนี้
-    # เพื่อไม่ให้ผู้ที่ยังไม่ Login
-    # สามารถเข้าถึงข้อมูลพืชได้
-    # -----------------------------------------------------
+    # สำคัญ:
+    # ไม่ให้คนที่ยังไม่ได้ Login เห็นข้อมูลพืช
     st.stop()
 
 
 # =========================================================
-# หลังจาก Login แล้ว
+# ข้อมูลผู้ใช้ปัจจุบัน
 # =========================================================
-current_user = st.session_state.current_user
+
+current_user = (
+    st.session_state.current_user
+)
 
 user_role = current_user.get(
     "role",
@@ -387,22 +448,22 @@ user_role = current_user.get(
 # =========================================================
 # SIDEBAR
 # =========================================================
+
 with st.sidebar:
 
-    st.header("🌿 เมนูระบบ")
+    st.header(
+        "🌿 เมนูระบบ"
+    )
 
     st.success(
         f"👤 {current_user.get('name', '-')}\n\n"
         f"สถานะ: {user_role}"
     )
 
-    # -----------------------------------------------------
-    # ADMIN
-    # -----------------------------------------------------
     if user_role == "ผู้ดูแลระบบ":
 
         menu = st.radio(
-            "เลือกเมนู",
+            "เมนู",
             [
                 "🌱 ดูพรรณไม้",
                 "🔧 จัดการพรรณไม้",
@@ -411,13 +472,10 @@ with st.sidebar:
             ]
         )
 
-    # -----------------------------------------------------
-    # USER
-    # -----------------------------------------------------
     else:
 
         menu = st.radio(
-            "เลือกเมนู",
+            "เมนู",
             [
                 "🌱 ดูพรรณไม้",
                 "👤 ข้อมูลของฉัน"
@@ -439,11 +497,14 @@ with st.sidebar:
 
 
 # =========================================================
-# เมนู: ดูพรรณไม้
+# ดูพรรณไม้
 # =========================================================
+
 if menu == "🌱 ดูพรรณไม้":
 
-    st.header("🌱 ฐานข้อมูลพรรณไม้")
+    st.header(
+        "🌱 ฐานข้อมูลพรรณไม้"
+    )
 
     plants = st.session_state.data.get(
         "plants",
@@ -456,14 +517,6 @@ if menu == "🌱 ดูพรรณไม้":
             "ยังไม่มีข้อมูลพรรณไม้ในระบบ"
         )
 
-        if user_role == "ผู้ดูแลระบบ":
-
-            st.info(
-                "ไปที่เมนู "
-                "🔧 จัดการพรรณไม้ "
-                "เพื่อเพิ่มข้อมูล"
-            )
-
     else:
 
         plant_names = list(
@@ -471,35 +524,39 @@ if menu == "🌱 ดูพรรณไม้":
         )
 
         selected_plant = st.selectbox(
-            "🌿 เลือกพืชที่ต้องการศึกษา",
-            plant_names
+            "เลือกพรรณไม้",
+            plant_names,
+            key="view_plant"
         )
 
-        plant = plants[
+        # ดึงข้อมูลล่าสุดจาก session_state
+        plant = st.session_state.data[
+            "plants"
+        ].get(
             selected_plant
-        ]
-
-        st.divider()
-
-        col1, col2 = st.columns(
-            [1, 2]
         )
 
-        # -------------------------------------------------
-        # รูปพืช
-        # -------------------------------------------------
-        with col1:
+        if plant:
 
-            image_path = plant.get(
-                "image"
+            st.divider()
+
+            col1, col2 = st.columns(
+                [1, 2]
             )
 
-            if (
-                image_path
-                and os.path.exists(image_path)
-            ):
+            # รูป
+            with col1:
 
-                try:
+                image_path = plant.get(
+                    "image"
+                )
+
+                if (
+                    image_path
+                    and os.path.exists(
+                        image_path
+                    )
+                ):
 
                     st.image(
                         image_path,
@@ -507,82 +564,75 @@ if menu == "🌱 ดูพรรณไม้":
                         use_container_width=True
                     )
 
-                except Exception:
+                else:
 
-                    st.warning(
-                        "ไม่สามารถแสดงรูปภาพได้"
+                    st.info(
+                        "🌱 ไม่มีรูปภาพ"
                     )
 
-            else:
+            # ข้อมูล
+            with col2:
 
-                st.info(
-                    "🌱 พืชชนิดนี้ยังไม่มีรูปภาพ"
+                st.subheader(
+                    f"🌿 {selected_plant}"
                 )
 
-        # -------------------------------------------------
-        # รายละเอียดพืช
-        # -------------------------------------------------
-        with col2:
-
-            st.subheader(
-                f"🌿 {selected_plant}"
-            )
-
-            st.markdown(
-                "**ชื่อวิทยาศาสตร์**"
-            )
-
-            st.write(
-                plant.get(
-                    "scientific_name",
-                    "-"
+                st.markdown(
+                    "**ชื่อวิทยาศาสตร์**"
                 )
-            )
 
-            st.markdown(
-                "**สรรพคุณ / ประโยชน์**"
-            )
-
-            st.success(
-                plant.get(
-                    "benefit",
-                    "ไม่มีข้อมูล"
+                st.write(
+                    plant.get(
+                        "scientific_name",
+                        "-"
+                    )
                 )
-            )
 
-            st.markdown(
-                "### 📱 QR Code"
-            )
+                st.markdown(
+                    "**สรรพคุณ / ประโยชน์**"
+                )
 
-            qr_buffer = create_qr_code(
-                selected_plant,
-                plant
-            )
+                st.success(
+                    plant.get(
+                        "benefit",
+                        "-"
+                    )
+                )
 
-            st.image(
-                qr_buffer,
-                width=180
-            )
+                st.markdown(
+                    "### 📱 QR Code"
+                )
 
-            st.download_button(
-                "⬇️ ดาวน์โหลด QR Code",
-                data=qr_buffer.getvalue(),
-                file_name=(
-                    f"{selected_plant}_QR.png"
-                ),
-                mime="image/png"
-            )
+                qr_buffer = create_qr_code(
+                    selected_plant,
+                    plant
+                )
+
+                st.image(
+                    qr_buffer,
+                    width=180
+                )
+
+                st.download_button(
+                    "⬇️ ดาวน์โหลด QR Code",
+                    data=qr_buffer.getvalue(),
+                    file_name=(
+                        f"{selected_plant}_QR.png"
+                    ),
+                    mime="image/png"
+                )
 
 
 # =========================================================
-# เมนู ADMIN: จัดการพรรณไม้
+# จัดการพรรณไม้
 # =========================================================
+
 elif menu == "🔧 จัดการพรรณไม้":
 
     if user_role != "ผู้ดูแลระบบ":
 
         st.error(
-            "คุณไม่มีสิทธิ์เข้าถึงหน้านี้"
+            "ไม่มีสิทธิ์เข้าถึงหน้านี้"
         )
 
         st.stop()
@@ -594,13 +644,15 @@ elif menu == "🔧 จัดการพรรณไม้":
     tab_add, tab_edit = st.tabs(
         [
             "➕ เพิ่มพรรณไม้",
-            "✏️ แก้ไข / ลบพรรณไม้"
+            "✏️ แก้ไข / ลบ"
         ]
     )
+
 
     # =====================================================
     # เพิ่มพรรณไม้
     # =====================================================
+
     with tab_add:
 
         st.subheader(
@@ -608,28 +660,21 @@ elif menu == "🔧 จัดการพรรณไม้":
         )
 
         with st.form(
-            "add_plant_form",
-            clear_on_submit=False
+            "add_plant_form"
         ):
 
             plant_name = st.text_input(
-                "ชื่อพืช *",
-                placeholder="เช่น ต้นราชพฤกษ์"
+                "ชื่อพืช *"
             )
 
             scientific_name = st.text_input(
-                "ชื่อวิทยาศาสตร์",
-                placeholder="เช่น Cassia fistula"
+                "ชื่อวิทยาศาสตร์"
             )
 
             benefit = st.text_area(
-                "สรรพคุณ / ประโยชน์",
-                placeholder="กรอกข้อมูลสรรพคุณของพืช"
+                "สรรพคุณ / ประโยชน์"
             )
 
-            # -------------------------------------------------
-            # ช่องอัปโหลดรูปพืช
-            # -------------------------------------------------
             plant_image = st.file_uploader(
                 "🖼️ รูปภาพพืช",
                 type=[
@@ -637,8 +682,7 @@ elif menu == "🔧 จัดการพรรณไม้":
                     "jpeg",
                     "png",
                     "webp"
-                ],
-                help="เลือกรูปภาพของพรรณไม้"
+                ]
             )
 
             if plant_image:
@@ -649,14 +693,16 @@ elif menu == "🔧 จัดการพรรณไม้":
                     width=300
                 )
 
-            save_plant = st.form_submit_button(
-                "💾 บันทึกข้อมูลพรรณไม้",
+            save_button = st.form_submit_button(
+                "💾 บันทึกพรรณไม้",
                 use_container_width=True
             )
 
-            if save_plant:
+            if save_button:
 
-                plant_name = plant_name.strip()
+                plant_name = (
+                    plant_name.strip()
+                )
 
                 if not plant_name:
 
@@ -669,13 +715,12 @@ elif menu == "🔧 จัดการพรรณไม้":
                 ]:
 
                     st.error(
-                        "มีพืชชนิดนี้ในระบบแล้ว"
+                        "มีพืชชนิดนี้แล้ว"
                     )
 
                 else:
 
-                    # บันทึกรูปลงโฟลเดอร์ถาวร
-                    image_path = save_uploaded_image(
+                    image_path = save_image(
                         plant_image,
                         plant_name
                     )
@@ -694,23 +739,24 @@ elif menu == "🔧 จัดการพรรณไม้":
                             image_path
                     }
 
-                    # บันทึก JSON
-                    if save_data(
+                    save_data(
                         st.session_state.data
-                    ):
+                    )
 
-                        st.success(
-                            f"✅ เพิ่มพรรณไม้ "
-                            f"'{plant_name}' "
-                            f"เรียบร้อยแล้ว"
-                        )
+                    st.success(
+                        f"✅ เพิ่ม '{plant_name}' "
+                        "เรียบร้อยแล้ว"
+                    )
 
-                        st.rerun()
+                    # ไม่ใช้ st.rerun()
+                    # ข้อมูลถูกเก็บใน session_state
+                    # แล้ว
 
 
     # =====================================================
-    # แก้ไข / ลบพรรณไม้
+    # แก้ไข / ลบ
     # =====================================================
+
     with tab_edit:
 
         st.subheader(
@@ -732,19 +778,23 @@ elif menu == "🔧 จัดการพรรณไม้":
             selected = st.selectbox(
                 "เลือกพรรณไม้",
                 list(plants.keys()),
-                key="selected_edit_plant"
+                key="edit_plant"
             )
 
-            plant = plants[selected]
+            plant = st.session_state.data[
+                "plants"
+            ][selected]
 
-            # แสดงรูปเดิม
             old_image = plant.get(
                 "image"
             )
 
+            # รูปเดิม
             if (
                 old_image
-                and os.path.exists(old_image)
+                and os.path.exists(
+                    old_image
+                )
             ):
 
                 st.image(
@@ -756,7 +806,7 @@ elif menu == "🔧 จัดการพรรณไม้":
             else:
 
                 st.info(
-                    "ยังไม่มีรูปภาพพืช"
+                    "ยังไม่มีรูปภาพ"
                 )
 
             with st.form(
@@ -779,9 +829,6 @@ elif menu == "🔧 จัดการพรรณไม้":
                     )
                 )
 
-                # -------------------------------------------------
-                # ช่องเปลี่ยนรูป
-                # -------------------------------------------------
                 new_image = st.file_uploader(
                     "🖼️ เปลี่ยนรูปภาพพืช",
                     type=[
@@ -803,36 +850,36 @@ elif menu == "🔧 จัดการพรรณไม้":
                 col1, col2 = st.columns(2)
 
                 update_button = col1.form_submit_button(
-                    "💾 อัปเดตข้อมูล",
+                    "💾 อัปเดต",
                     use_container_width=True
                 )
 
                 delete_button = col2.form_submit_button(
-                    "🗑️ ลบพรรณไม้นี้",
+                    "🗑️ ลบ",
                     use_container_width=True
                 )
 
-                # =================================================
+
+                # =========================================
                 # UPDATE
-                # =================================================
+                # =========================================
+
                 if update_button:
 
                     image_path = old_image
 
-                    # ถ้ามีรูปใหม่
                     if new_image:
 
-                        # ลบรูปเก่า
                         delete_image(
                             old_image
                         )
 
-                        # บันทึกรูปใหม่
-                        image_path = save_uploaded_image(
+                        image_path = save_image(
                             new_image,
                             selected
                         )
 
+                    # อัปเดตข้อมูลในหน่วยความจำทันที
                     st.session_state.data[
                         "plants"
                     ][selected] = {
@@ -847,22 +894,25 @@ elif menu == "🔧 จัดการพรรณไม้":
                             image_path
                     }
 
-                    if save_data(
+                    # บันทึกลงไฟล์ถาวร
+                    save_data(
                         st.session_state.data
-                    ):
+                    )
 
-                        st.success(
-                            "✅ อัปเดตข้อมูลพรรณไม้แล้ว"
-                        )
+                    st.success(
+                        "✅ แก้ไขข้อมูลเรียบร้อยแล้ว"
+                    )
 
-                        st.rerun()
+                    # สำคัญ:
+                    # ไม่มี st.rerun()
 
-                # =================================================
+
+                # =========================================
                 # DELETE
-                # =================================================
+                # =========================================
+
                 if delete_button:
 
-                    # ลบรูปด้วย
                     delete_image(
                         old_image
                     )
@@ -871,28 +921,27 @@ elif menu == "🔧 จัดการพรรณไม้":
                         "plants"
                     ][selected]
 
-                    if save_data(
+                    save_data(
                         st.session_state.data
-                    ):
+                    )
 
-                        st.success(
-                            f"🗑️ ลบพรรณไม้ "
-                            f"'{selected}' "
-                            f"เรียบร้อยแล้ว"
-                        )
+                    st.success(
+                        "🗑️ ลบพรรณไม้เรียบร้อยแล้ว"
+                    )
 
-                        st.rerun()
+                    # ไม่มี st.rerun()
 
 
 # =========================================================
-# เมนู ADMIN: จัดการสมาชิก
+# จัดการสมาชิก
 # =========================================================
+
 elif menu == "👥 จัดการสมาชิก":
 
     if user_role != "ผู้ดูแลระบบ":
 
         st.error(
-            "คุณไม่มีสิทธิ์เข้าถึงหน้านี้"
+            "ไม่มีสิทธิ์เข้าถึงหน้านี้"
         )
 
         st.stop()
@@ -901,17 +950,19 @@ elif menu == "👥 จัดการสมาชิก":
         "👥 จัดการสมาชิก"
     )
 
-    tab_add_user, tab_users = st.tabs(
+    tab_add, tab_list = st.tabs(
         [
             "➕ เพิ่มสมาชิก",
-            "📋 รายชื่อสมาชิก"
+            "📋 สมาชิกทั้งหมด"
         ]
     )
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # เพิ่มสมาชิก
-    # -----------------------------------------------------
-    with tab_add_user:
+    # =====================================================
+
+    with tab_add:
 
         with st.form(
             "add_user_form"
@@ -947,6 +998,7 @@ elif menu == "👥 จัดการสมาชิก":
             if add_user:
 
                 user_id = user_id.strip()
+
                 user_name = user_name.strip()
 
                 if not user_id or not user_name:
@@ -960,7 +1012,7 @@ elif menu == "👥 จัดการสมาชิก":
                 ]:
 
                     st.error(
-                        "รหัสสมาชิกนี้มีอยู่แล้ว"
+                        "รหัสนี้มีอยู่แล้ว"
                     )
 
                 else:
@@ -979,103 +1031,96 @@ elif menu == "👥 จัดการสมาชิก":
                             user_class.strip()
                     }
 
-                    if save_data(
+                    save_data(
                         st.session_state.data
-                    ):
+                    )
 
-                        st.success(
-                            "เพิ่มสมาชิกเรียบร้อยแล้ว"
-                        )
-
-                        st.rerun()
+                    st.success(
+                        "✅ เพิ่มสมาชิกเรียบร้อยแล้ว"
+                    )
 
 
-    # -----------------------------------------------------
+    # =====================================================
     # รายชื่อสมาชิก
-    # -----------------------------------------------------
-    with tab_users:
+    # =====================================================
+
+    with tab_list:
 
         users = st.session_state.data[
             "users"
         ]
 
-        if not users:
+        for uid, info in list(
+            users.items()
+        ):
 
-            st.info(
-                "ยังไม่มีสมาชิก"
-            )
-
-        else:
-
-            for uid, info in list(
-                users.items()
+            with st.container(
+                border=True
             ):
 
-                with st.container(
-                    border=True
-                ):
+                col1, col2 = st.columns(
+                    [5, 1]
+                )
 
-                    col1, col2 = st.columns(
-                        [5, 1]
+                with col1:
+
+                    st.write(
+                        f"**รหัส:** {uid}"
                     )
 
-                    with col1:
+                    st.write(
+                        f"ชื่อ: "
+                        f"{info.get('name', '-')}"
+                    )
 
-                        st.markdown(
-                            f"**รหัส:** {uid}"
+                    st.write(
+                        f"สถานะ: "
+                        f"{info.get('role', '-')}"
+                    )
+
+                    st.write(
+                        f"ชั้น / แผนก: "
+                        f"{info.get('class', '-')}"
+                    )
+
+                with col2:
+
+                    if uid == "admin":
+
+                        st.caption(
+                            "บัญชีหลัก"
                         )
 
-                        st.write(
-                            f"ชื่อ: "
-                            f"{info.get('name', '-')}"
-                        )
+                    else:
 
-                        st.write(
-                            f"สถานะ: "
-                            f"{info.get('role', '-')}"
-                        )
+                        if st.button(
+                            "🗑️ ลบ",
+                            key=f"delete_{uid}"
+                        ):
 
-                        st.write(
-                            f"ชั้น / แผนก: "
-                            f"{info.get('class', '-')}"
-                        )
+                            del st.session_state.data[
+                                "users"
+                            ][uid]
 
-                    with col2:
-
-                        if uid == "admin":
-
-                            st.caption(
-                                "บัญชีหลัก"
+                            save_data(
+                                st.session_state.data
                             )
 
-                        else:
-
-                            if st.button(
-                                "🗑️ ลบ",
-                                key=f"delete_user_{uid}",
-                                use_container_width=True
-                            ):
-
-                                del st.session_state.data[
-                                    "users"
-                                ][uid]
-
-                                save_data(
-                                    st.session_state.data
-                                )
-
-                                st.rerun()
+                            st.success(
+                                "ลบสมาชิกแล้ว"
+                            )
 
 
 # =========================================================
-# เมนู ADMIN: ประวัติ Login
+# ประวัติ Login
 # =========================================================
+
 elif menu == "📊 ประวัติการเข้าสู่ระบบ":
 
     if user_role != "ผู้ดูแลระบบ":
 
         st.error(
-            "คุณไม่มีสิทธิ์เข้าถึงหน้านี้"
+            "ไม่มีสิทธิ์เข้าถึงหน้านี้"
         )
 
         st.stop()
@@ -1092,52 +1137,51 @@ elif menu == "📊 ประวัติการเข้าสู่ระบ�
     if not logs:
 
         st.info(
-            "ยังไม่มีประวัติการเข้าสู่ระบบ"
+            "ยังไม่มีประวัติ"
         )
 
     else:
 
         filter_date = st.text_input(
-            "กรองวันที่ "
-            "(YYYY-MM-DD) "
-            "หรือเว้นว่างเพื่อดูทั้งหมด"
+            "กรองวันที่ YYYY-MM-DD"
         )
 
         if filter_date:
 
-            filtered_logs = [
+            filtered = [
                 log
                 for log in logs
-                if filter_date
-                in log.get("time", "")
+                if filter_date in log.get(
+                    "time",
+                    ""
+                )
             ]
 
         else:
 
-            filtered_logs = logs
+            filtered = logs
 
         st.metric(
-            "จำนวนการเข้าสู่ระบบ",
-            len(filtered_logs)
+            "จำนวนรายการ",
+            len(filtered)
         )
 
-        st.divider()
-
         for log in reversed(
-            filtered_logs
+            filtered
         ):
 
             st.markdown(
                 f"- 🕒 **{log.get('time', '-')}** "
-                f"| รหัส: **{log.get('id', '-')}** "
-                f"| ชื่อ: **{log.get('name', '-')}** "
-                f"| สถานะ: **{log.get('role', '-')}**"
+                f"| {log.get('id', '-')} "
+                f"| {log.get('name', '-')} "
+                f"| {log.get('role', '-')}"
             )
 
 
 # =========================================================
-# ข้อมูลส่วนตัว
+# ข้อมูลของฉัน
 # =========================================================
+
 elif menu == "👤 ข้อมูลของฉัน":
 
     st.header(
@@ -1145,7 +1189,7 @@ elif menu == "👤 ข้อมูลของฉัน":
     )
 
     st.write(
-        f"**รหัสสมาชิก:** "
+        f"**รหัส:** "
         f"{current_user.get('id', '-')}"
     )
 
@@ -1168,6 +1212,7 @@ elif menu == "👤 ข้อมูลของฉัน":
 # =========================================================
 # FOOTER
 # =========================================================
+
 st.divider()
 
 st.caption(
