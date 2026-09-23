@@ -50,7 +50,7 @@ if 'data' not in st.session_state:
     st.session_state['data'] = load_data()
 
 # ส่วนหัวของเว็บไซต์
-st.markdown("if not plants_dict:
+st.markdown("if not plants_dict":)
     st.warning("ยังไม่มีข้อมูลพรรณไม้ในระบบ กรุณาเพิ่มข้อมูลในระบบหลังบ้าน")
 else:
     plant_name = st.selectbox("เลือกพืชที่ต้องการศึกษา:", list(plants_dict.keys()))
