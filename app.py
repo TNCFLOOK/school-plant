@@ -12,20 +12,22 @@ PLANTS_FILE = "plants_data.json"
 STUDENTS_FILE = "students_data.json"
 
 # ==========================================
-# 🌿 ข้อมูลตั้งต้นหลัก (Default Data) เพื่อป้องกันข้อมูลหายถาวร
+# 🌿 ข้อมูลตั้งต้นหลัก (Default Data)
 # ==========================================
 DEFAULT_PLANTS = {
     "ตำแยแมว": {
         "scientific_name": "Acalypha indica L.",
         "family": "Euphorbiaceae",
         "benefit": "รากหรือใบต้มน้ำดื่มขับเสมหะ ช่วยให้แมวผ่อนคลาย",
+        "location": "บริเวณสวนหย่อมข้างอาคาร 1",
         "image": None
     }
 }
 
 DEFAULT_STUDENTS = {
-    "admin01": {"name": "ผู้ดูแลระบบหลัก", "class": "คณะครู", "role": "Admin"},
-    "65001": {"name": "เด็กชายสมชาย เรียนดี", "class": "ม.3/1", "role": "User"}
+    "admin01": {"name": "ผู้ดูแลระบบหลัก", "class": "คณะครู", "role": "แอดมินระบบ"},
+    "teacher01": {"name": "คุณครูสมศรี ใจดี", "class": "หมวดวิทยาศาสตร์", "role": "ครู"},
+    "65001": {"name": "เด็กชายสมชาย เรียนดี", "class": "ม.3/1", "role": "นักเรียน"}
 }
 
 # ==========================================
@@ -71,6 +73,7 @@ def save_initial_plants():
             "scientific_name": p_data.get("scientific_name", ""),
             "family": p_data.get("family", ""),
             "benefit": p_data.get("benefit", ""),
+            "location": p_data.get("location", ""),
             "image_base64": None
         }
     try:
@@ -94,6 +97,7 @@ def save_plants():
             "scientific_name": p_data.get("scientific_name", ""),
             "family": p_data.get("family", ""),
             "benefit": p_data.get("benefit", ""),
+            "location": p_data.get("location", ""),
             "image_base64": img_b64
         }
     try:
@@ -139,7 +143,7 @@ if 'logged_in_user' not in st.session_state:
     st.session_state['logged_in_user'] = None
 
 # ==========================================
-# 🔐 หน้า Login
+# 🔐 หน้า Login รูปแบบใหม่ (กรอกเลขประจำตัว + เลือกสถานะ)
 # ==========================================
 if st.session_state['logged_in_user'] is None:
     st.markdown("
