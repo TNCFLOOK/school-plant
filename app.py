@@ -61,7 +61,6 @@ def load_plants():
                     return data
         except Exception:
             pass
-    # ถ้าไม่มีไฟล์ หรือไฟล์ว่าง ให้สร้างไฟล์ใหม่จากข้อมูลตั้งต้นทันที
     save_initial_plants()
     return DEFAULT_PLANTS
 
